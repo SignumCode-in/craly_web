@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { Plus, Edit, Trash2, X, Save } from 'lucide-react';
+import SimpleTextEditor from './SimpleTextEditor';
+import SearchableSelect from './SearchableSelect';
 
 const PostsManager = () => {
   const [posts, setPosts] = useState([]);
@@ -173,47 +175,43 @@ const PostsManager = () => {
 
               <div>
                 <label className="block text-sm font-medium mb-2">Body *</label>
-                <textarea
+                <SimpleTextEditor
                   value={formData.body}
-                  onChange={(e) => setFormData({ ...formData, body: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary"
-                  rows="6"
-                  required
+                  onChange={(value) => setFormData({ ...formData, body: value })}
+                  placeholder="Enter post body content..."
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">Tool</label>
-                  <select
+                  <SearchableSelect
+                    options={[
+                      { value: '', label: 'Select Tool' },
+                      ...tools.map(tool => ({ value: tool.id, label: tool.name }))
+                    ]}
                     value={formData.tool.toolId}
-                    onChange={(e) => setFormData({
+                    onChange={(value) => setFormData({
                       ...formData,
-                      tool: { ...formData.tool, toolId: e.target.value }
+                      tool: { ...formData.tool, toolId: value }
                     })}
-                    className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary"
-                  >
-                    <option value="">Select Tool</option>
-                    {tools.map(tool => (
-                      <option key={tool.id} value={tool.id}>{tool.name}</option>
-                    ))}
-                  </select>
+                    placeholder="Select Tool"
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Category</label>
-                  <select
+                  <SearchableSelect
+                    options={[
+                      { value: '', label: 'Select Category' },
+                      ...categories.map(category => ({ value: category.id, label: category.name }))
+                    ]}
                     value={formData.tool.categoryId}
-                    onChange={(e) => setFormData({
+                    onChange={(value) => setFormData({
                       ...formData,
-                      tool: { ...formData.tool, categoryId: e.target.value }
+                      tool: { ...formData.tool, categoryId: value }
                     })}
-                    className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary"
-                  >
-                    <option value="">Select Category</option>
-                    {categories.map(category => (
-                      <option key={category.id} value={category.id}>{category.name}</option>
-                    ))}
-                  </select>
+                    placeholder="Select Category"
+                  />
                 </div>
               </div>
 

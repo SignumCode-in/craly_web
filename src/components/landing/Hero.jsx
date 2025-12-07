@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { ArrowRight } from 'lucide-react';
+import Logo from '../Logo';
 
 const Hero = () => {
   return (
@@ -13,57 +14,14 @@ const Hero = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          {/* Logo - C shape with 5 concentric arcs */}
+          {/* Logo */}
           <motion.div
             className="mb-8 flex justify-center"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6 }}
           >
-            <div className="w-32 h-32 relative">
-              <svg className="w-full h-full" viewBox="0 0 120 120">
-                {/* 5 concentric C-shaped arcs, open on the right */}
-                <path
-                  d="M 30 20 A 30 30 0 0 1 30 100"
-                  fill="none"
-                  stroke="white"
-                  strokeWidth="4"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M 35 25 A 25 25 0 0 1 35 95"
-                  fill="none"
-                  stroke="white"
-                  strokeWidth="3.5"
-                  strokeLinecap="round"
-                  opacity="0.85"
-                />
-                <path
-                  d="M 40 30 A 20 20 0 0 1 40 90"
-                  fill="none"
-                  stroke="white"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  opacity="0.7"
-                />
-                <path
-                  d="M 45 35 A 15 15 0 0 1 45 85"
-                  fill="none"
-                  stroke="white"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  opacity="0.55"
-                />
-                <path
-                  d="M 50 40 A 10 10 0 0 1 50 80"
-                  fill="none"
-                  stroke="white"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  opacity="0.4"
-                />
-              </svg>
-            </div>
+            <Logo className="w-32 h-32" />
           </motion.div>
 
           <motion.h1

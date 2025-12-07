@@ -8,6 +8,8 @@ import ToolsManager from '../../components/admin/ToolsManager';
 import CategoriesManager from '../../components/admin/CategoriesManager';
 import WorkflowsManager from '../../components/admin/WorkflowsManager';
 import PostsManager from '../../components/admin/PostsManager';
+import PrivacyPolicyManager from '../../components/admin/PrivacyPolicyManager';
+import LandingPageManager from '../../components/admin/LandingPageManager';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -34,6 +36,10 @@ const AdminDashboard = () => {
         return <WorkflowsManager />;
       case 'posts':
         return <PostsManager />;
+      case 'privacy':
+        return <PrivacyPolicyManager />;
+      case 'landing':
+        return <LandingPageManager />;
       default:
         return <DashboardHome />;
     }

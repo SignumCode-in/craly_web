@@ -1,18 +1,21 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
 import { db } from '../../firebase/config';
-import { Plus, Edit, Trash2, X, Save } from 'lucide-react';
+import { Plus, Edit, Trash2, X, Save, Search, Power } from 'lucide-react';
 
 const CategoriesManager = () => {
   const [categories, setCategories] = useState([]);
+  const [filteredCategories, setFilteredCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [editingCategory, setEditingCategory] = useState(null);
   const [formData, setFormData] = useState({
     name: '',
     iconName: '',
     toolCount: 0,
-    description: ''
+    description: '',
+    enabled: true
   });
 
   useEffect(() => {
@@ -23,13 +26,27 @@ const CategoriesManager = () => {
     try {
       const q = query(collection(db, 'categories'), orderBy('name'));
       const snapshot = await getDocs(q);
-      setCategories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const categoriesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setCategories(categoriesData);
+      setFilteredCategories(categoriesData);
     } catch (error) {
       console.error('Error fetching categories:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (searchTerm) {
+      const filtered = categories.filter(cat =>
+        cat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        cat.description?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredCategories(filtered);
+    } else {
+      setFilteredCategories(categories);
+    }
+  }, [searchTerm, categories]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -55,8 +72,23 @@ const CategoriesManager = () => {
 
   const handleEdit = (category) => {
     setEditingCategory(category);
-    setFormData(category);
+    setFormData({
+      ...category,
+      enabled: category.enabled !== undefined ? category.enabled : true
+    });
     setShowForm(true);
+  };
+
+  const handleToggleEnabled = async (category) => {
+    try {
+      await updateDoc(doc(db, 'categories', category.id), {
+        enabled: !category.enabled
+      });
+      fetchCategories();
+    } catch (error) {
+      console.error('Error toggling category:', error);
+      alert('Error updating category: ' + error.message);
+    }
   };
 
   const handleDelete = async (id) => {
@@ -76,7 +108,8 @@ const CategoriesManager = () => {
       name: '',
       iconName: '',
       toolCount: 0,
-      description: ''
+      description: '',
+      enabled: true
     });
     setEditingCategory(null);
     setShowForm(false);
@@ -97,6 +130,19 @@ const CategoriesManager = () => {
           <Plus className="w-5 h-5" />
           Add Category
         </button>
+      </div>
+
+      <div className="mb-6">
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-soft-grey" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search categories..."
+            className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary text-white placeholder-soft-grey"
+          />
+        </div>
       </div>
 
       {showForm && (
@@ -152,6 +198,17 @@ const CategoriesManager = () => {
                 />
               </div>
 
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="enabled"
+                  checked={formData.enabled}
+                  onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                <label htmlFor="enabled" className="text-sm font-medium">Enabled</label>
+              </div>
+
               <div className="flex gap-4 pt-4">
                 <button
                   type="submit"
@@ -181,16 +238,30 @@ const CategoriesManager = () => {
                 <th className="px-6 py-4 text-left text-sm font-semibold">Name</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold">Icon</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold">Tool Count</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold">Status</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold">Description</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {categories.map((category) => (
+              {filteredCategories.map((category) => (
                 <tr key={category.id} className="border-t border-white/10 hover:bg-white/5">
                   <td className="px-6 py-4 font-medium">{category.name}</td>
                   <td className="px-6 py-4">{category.iconName || '-'}</td>
                   <td className="px-6 py-4">{category.toolCount || 0}</td>
+                  <td className="px-6 py-4">
+                    <button
+                      onClick={() => handleToggleEnabled(category)}
+                      className={`flex items-center gap-2 px-3 py-1 rounded text-xs font-medium transition-colors ${
+                        category.enabled !== false
+                          ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                          : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                      }`}
+                    >
+                      <Power className={`w-3 h-3 ${category.enabled !== false ? '' : 'opacity-50'}`} />
+                      {category.enabled !== false ? 'Enabled' : 'Disabled'}
+                    </button>
+                  </td>
                   <td className="px-6 py-4 text-soft-grey">{category.description || '-'}</td>
                   <td className="px-6 py-4">
                     <div className="flex gap-2">

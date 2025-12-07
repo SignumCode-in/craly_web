@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderTree, Tag, Workflow, FileText, LogOut } from 'lucide-react';
+import { LayoutDashboard, FolderTree, Tag, Workflow, FileText, LogOut, Shield, Globe } from 'lucide-react';
 
 const Sidebar = ({ activeTab, setActiveTab, onLogout }) => {
   const menuItems = [
@@ -6,7 +6,9 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout }) => {
     { id: 'tools', label: 'Tools Manager', icon: FolderTree },
     { id: 'categories', label: 'Categories', icon: Tag },
     { id: 'workflows', label: 'Workflows', icon: Workflow },
-    { id: 'posts', label: 'Posts', icon: FileText }
+    { id: 'posts', label: 'Posts', icon: FileText },
+    { id: 'privacy', label: 'Privacy Policy', icon: Shield },
+    { id: 'landing', label: 'Landing Page', icon: Globe }
   ];
 
   return (
