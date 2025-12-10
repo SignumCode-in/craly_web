@@ -8,8 +8,10 @@ import ToolsManager from '../../components/admin/ToolsManager';
 import CategoriesManager from '../../components/admin/CategoriesManager';
 import WorkflowsManager from '../../components/admin/WorkflowsManager';
 import PostsManager from '../../components/admin/PostsManager';
+import BannerManager from '../../components/admin/BannerManager';
 import PrivacyPolicyManager from '../../components/admin/PrivacyPolicyManager';
 import LandingPageManager from '../../components/admin/LandingPageManager';
+import JsonUploadManager from '../../components/admin/JsonUploadManager';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -36,10 +38,14 @@ const AdminDashboard = () => {
         return <WorkflowsManager />;
       case 'posts':
         return <PostsManager />;
+      case 'banners':
+        return <BannerManager />;
       case 'privacy':
         return <PrivacyPolicyManager />;
       case 'landing':
         return <LandingPageManager />;
+      case 'json-upload':
+        return <JsonUploadManager />;
       default:
         return <DashboardHome />;
     }

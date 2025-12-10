@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../firebase/config';
 import { LogIn, Mail, Lock } from 'lucide-react';
 
 const AdminAuth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -18,11 +17,7 @@ const AdminAuth = () => {
     setLoading(true);
 
     try {
-      if (isLogin) {
-        await signInWithEmailAndPassword(auth, email, password);
-      } else {
-        await createUserWithEmailAndPassword(auth, email, password);
-      }
+      await signInWithEmailAndPassword(auth, email, password);
       navigate('/admin');
     } catch (err) {
       setError(err.message);
@@ -41,7 +36,7 @@ const AdminAuth = () => {
             </div>
             <h1 className="text-3xl font-bold mb-2">Admin Portal</h1>
             <p className="text-soft-grey">
-              {isLogin ? 'Sign in to continue' : 'Create an admin account'}
+              Sign in to continue
             </p>
           </div>
 
@@ -87,21 +82,9 @@ const AdminAuth = () => {
               disabled={loading}
               className="w-full py-3 bg-primary hover:bg-primary/90 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Loading...' : isLogin ? 'Sign In' : 'Sign Up'}
+              {loading ? 'Loading...' : 'Sign In'}
             </button>
           </form>
-
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setError('');
-              }}
-              className="text-soft-grey hover:text-white transition-colors text-sm"
-            >
-              {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
-            </button>
-          </div>
         </div>
       </div>
     </div>
