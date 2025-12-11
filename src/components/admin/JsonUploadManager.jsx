@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { collection, addDoc, writeBatch, doc, getDocs, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, writeBatch, doc, getDocs, serverTimestamp, arrayUnion, updateDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
 import { Upload, CheckCircle, XCircle, AlertCircle, Loader } from 'lucide-react';
 
@@ -71,6 +71,9 @@ const JsonUploadManager = () => {
           }
           if (step.toolId && typeof step.toolId !== 'string') {
             errors.push(`Workflow ${index}, Step ${stepIndex + 1}: 'toolId' must be a string`);
+          }
+          if (step.prompt && typeof step.prompt !== 'string') {
+            errors.push(`Workflow ${index}, Step ${stepIndex + 1}: 'prompt' must be a string`);
           }
         });
       }
@@ -205,16 +208,19 @@ const JsonUploadManager = () => {
 
       // Upload categories
       if (parsedData.categories && parsedData.categories.length > 0) {
-        // Check for existing categories to avoid duplicates
+        // Check for existing categories to avoid duplicates by ID and name
         const existingCategoriesSnapshot = await getDocs(collection(db, 'categories'));
         const existingCategoryIds = new Set(
           existingCategoriesSnapshot.docs.map(doc => doc.id)
         );
+        const existingCategoryNames = new Set(
+          existingCategoriesSnapshot.docs.map(doc => doc.data().name).filter(Boolean)
+        );
 
         let categoryCount = 0;
         for (const category of parsedData.categories) {
-          // Check if category with same id already exists
-          if (!existingCategoryIds.has(category.id)) {
+          // Check if category with same id or name already exists
+          if (!existingCategoryIds.has(category.id) && !existingCategoryNames.has(category.name)) {
             // Use the id field as the document ID
             const categoryRef = doc(db, 'categories', category.id);
             batch.set(categoryRef, {
@@ -237,10 +243,13 @@ const JsonUploadManager = () => {
         const existingWorkflowIds = new Set(
           existingWorkflowsSnapshot.docs.map(doc => doc.id)
         );
+        const existingWorkflowNames = new Set(
+          existingWorkflowsSnapshot.docs.map(doc => doc.data().name).filter(Boolean)
+        );
 
         let workflowCount = 0;
         for (const workflow of parsedData.workflows) {
-          if (!existingWorkflowIds.has(workflow.id)) {
+          if (!existingWorkflowIds.has(workflow.id) && !existingWorkflowNames.has(workflow.name)) {
             // Use the id field as the document ID
             const workflowRef = doc(db, 'workflows', workflow.id);
             batch.set(workflowRef, {
@@ -263,33 +272,115 @@ const JsonUploadManager = () => {
         const existingToolIds = new Set(
           existingToolsSnapshot.docs.map(doc => doc.id)
         );
+        const existingToolNames = new Set(
+          existingToolsSnapshot.docs.map(doc => doc.data().name).filter(Boolean)
+        );
 
         let newToolCount = 0;
         let updatedToolCount = 0;
+        let skippedToolCount = 0;
+        const categoryToolsMap = new Map(); // Track which tools belong to which categories
+
         for (const tool of parsedData.tools) {
-          // Use the id field as the document ID
-          const toolRef = doc(db, 'tools', tool.id);
-          const isNew = !existingToolIds.has(tool.id);
+          // Check if tool with same id or name already exists
+          const isDuplicateId = existingToolIds.has(tool.id);
+          const isDuplicateName = existingToolNames.has(tool.name);
 
-          batch.set(toolRef, {
-            ...tool,
-            enabled: tool.enabled !== undefined ? tool.enabled : true,
-            updatedAt: serverTimestamp()
-          }, { merge: false }); // Use set to replace entire document
+          if (!isDuplicateId && !isDuplicateName) {
+            // Use the id field as the document ID
+            const toolRef = doc(db, 'tools', tool.id);
 
-          if (isNew) {
+            batch.set(toolRef, {
+              ...tool,
+              enabled: tool.enabled !== undefined ? tool.enabled : true,
+              updatedAt: serverTimestamp()
+            }, { merge: false }); // Use set to replace entire document
+
+            // Track category-tool relationship for updating category's tools array
+            if (tool.category) {
+              if (!categoryToolsMap.has(tool.category)) {
+                categoryToolsMap.set(tool.category, []);
+              }
+              categoryToolsMap.get(tool.category).push(tool.id);
+            }
+
             newToolCount++;
           } else {
-            updatedToolCount++;
+            skippedToolCount++;
+            statusMessages.push(`Tool "${tool.name}" (id: ${tool.id}) already exists, skipping`);
           }
         }
-        uploadCount += newToolCount + updatedToolCount;
-        if (newToolCount > 0 && updatedToolCount > 0) {
-          statusMessages.push(`Tools: ${newToolCount} new entries, ${updatedToolCount} updated`);
-        } else if (newToolCount > 0) {
+        uploadCount += newToolCount;
+        if (newToolCount > 0) {
           statusMessages.push(`Tools: ${newToolCount} new entries`);
-        } else if (updatedToolCount > 0) {
-          statusMessages.push(`Tools: ${updatedToolCount} entries updated`);
+        }
+        if (skippedToolCount > 0) {
+          statusMessages.push(`Tools: ${skippedToolCount} skipped (duplicates)`);
+        }
+
+        // After tools are uploaded, update category tools arrays
+        if (categoryToolsMap.size > 0) {
+          // Commit the batch first
+          await batch.commit();
+
+          // Fetch all categories to find matches by ID or name
+          const categoriesSnapshot = await getDocs(collection(db, 'categories'));
+          const categoriesMap = new Map();
+          categoriesSnapshot.docs.forEach(categoryDoc => {
+            const categoryData = categoryDoc.data();
+            // Map by both document ID and name for flexible lookup
+            categoriesMap.set(categoryDoc.id, categoryDoc.id);
+            if (categoryData.name) {
+              categoriesMap.set(categoryData.name, categoryDoc.id);
+            }
+          });
+
+          // Now update categories with tool IDs
+          let categoriesUpdated = 0;
+          for (const [categoryIdentifier, toolIds] of categoryToolsMap.entries()) {
+            try {
+              // Find category by ID or name
+              const categoryDocId = categoriesMap.get(categoryIdentifier);
+
+              if (categoryDocId) {
+                const categoryRef = doc(db, 'categories', categoryDocId);
+
+                // Get current category data to calculate new tool count
+                const categorySnapshot = categoriesSnapshot.docs.find(doc => doc.id === categoryDocId);
+                const currentTools = categorySnapshot?.data()?.tools || [];
+                const newToolsSet = new Set([...currentTools, ...toolIds]);
+                const newToolCount = newToolsSet.size;
+
+                await updateDoc(categoryRef, {
+                  tools: arrayUnion(...toolIds),
+                  toolCount: newToolCount,
+                  updatedAt: serverTimestamp()
+                });
+                categoriesUpdated++;
+              } else {
+                statusMessages.push(`Warning: Category "${categoryIdentifier}" not found, skipped tools array update`);
+              }
+            } catch (error) {
+              console.warn(`Could not update category ${categoryIdentifier}:`, error.message);
+              statusMessages.push(`Error: Failed to update category "${categoryIdentifier}"`);
+            }
+          }
+
+          if (categoriesUpdated > 0) {
+            statusMessages.push(`Categories: ${categoriesUpdated} categories updated with tool references`);
+          }
+
+          setUploadStatus({
+            type: 'success',
+            message: `Successfully uploaded ${uploadCount} entries and updated ${categoriesUpdated} categories!`,
+            details: statusMessages
+          });
+          // Clear the input after successful upload
+          setJsonInput('');
+          setParsedData(null);
+          setValidationSuccess(false);
+          setUploading(false);
+          return; // Exit early since we already committed
         }
       }
 
@@ -350,7 +441,8 @@ const JsonUploadManager = () => {
             {
               "title": "Business Planning",
               "description": "Generate business plan and market analysis",
-              "toolId": "chatgpt"
+              "toolId": "chatgpt",
+              "prompt": "Create a comprehensive business plan for a tech startup"
             }
           ],
           "tags": [

@@ -90,7 +90,7 @@ const WorkflowsManager = () => {
   const addJourneyStep = () => {
     setFormData({
       ...formData,
-      journey: [...formData.journey, { title: '', description: '', toolId: '' }]
+      journey: [...formData.journey, { title: '', description: '', toolId: '', prompt: '' }]
     });
   };
 
@@ -249,6 +249,16 @@ const WorkflowsManager = () => {
                               <option key={tool.id} value={tool.id}>{tool.name}</option>
                             ))}
                           </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium mb-1">Prompt</label>
+                          <textarea
+                            value={step.prompt || ''}
+                            onChange={(e) => updateJourneyStep(index, 'prompt', e.target.value)}
+                            className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary text-sm"
+                            rows="3"
+                            placeholder="Enter the prompt for this step..."
+                          />
                         </div>
                       </div>
                     </div>
