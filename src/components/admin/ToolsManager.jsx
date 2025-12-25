@@ -54,6 +54,19 @@ const ToolsManager = () => {
     }
   };
 
+  // Helper function to get category ID from either ID or name (for backward compatibility)
+  const getCategoryId = (categoryIdOrName) => {
+    if (!categoryIdOrName) return null;
+    const category = categories.find(cat => cat.id === categoryIdOrName || cat.name === categoryIdOrName);
+    return category ? category.id : null;
+  };
+
+  // Helper function to get category name by ID
+  const getCategoryName = (categoryId) => {
+    const category = categories.find(cat => cat.id === categoryId || cat.name === categoryId);
+    return category ? category.name : categoryId;
+  };
+
   useEffect(() => {
     let filtered = tools;
 
@@ -66,13 +79,13 @@ const ToolsManager = () => {
     if (searchTerm) {
       filtered = filtered.filter(tool =>
         tool.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tool.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        getCategoryName(tool.category)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         tool.shortDescription?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     setFilteredTools(filtered);
-  }, [searchTerm, selectedCategory, tools]);
+  }, [searchTerm, selectedCategory, tools, categories]);
 
   const fetchCategories = async () => {
     try {
@@ -81,12 +94,6 @@ const ToolsManager = () => {
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
-  };
-
-  // Helper function to get category name by ID
-  const getCategoryName = (categoryId) => {
-    const category = categories.find(cat => cat.id === categoryId || cat.name === categoryId);
-    return category ? category.name : categoryId;
   };
 
   const handleSubmit = async (e) => {
@@ -108,25 +115,21 @@ const ToolsManager = () => {
         await updateDoc(doc(db, 'tools', documentId), toolData);
 
         // Update category tools array if category changed
-        const oldCategoryId = editingTool.category;
+        // Convert old category name to ID for backward compatibility
+        const oldCategoryId = getCategoryId(editingTool.category);
         const newCategoryId = formData.category;
 
         if (oldCategoryId !== newCategoryId) {
-          // Find the category document IDs by name
-          const categoriesSnapshot = await getDocs(collection(db, 'categories'));
-          const oldCategoryDoc = categoriesSnapshot.docs.find(doc => doc.data().name === oldCategoryId);
-          const newCategoryDoc = categoriesSnapshot.docs.find(doc => doc.data().name === newCategoryId);
-
           // Remove from old category
-          if (oldCategoryDoc) {
-            await updateDoc(doc(db, 'categories', oldCategoryDoc.id), {
+          if (oldCategoryId) {
+            await updateDoc(doc(db, 'categories', oldCategoryId), {
               tools: arrayRemove(documentId)
             });
           }
 
           // Add to new category
-          if (newCategoryDoc) {
-            await updateDoc(doc(db, 'categories', newCategoryDoc.id), {
+          if (newCategoryId) {
+            await updateDoc(doc(db, 'categories', newCategoryId), {
               tools: arrayUnion(documentId)
             });
           }
@@ -137,12 +140,9 @@ const ToolsManager = () => {
         const newToolId = newToolRef.id;
 
         // Add tool ID to category's tools array
-        const categoryName = formData.category;
-        const categoriesSnapshot = await getDocs(collection(db, 'categories'));
-        const categoryDoc = categoriesSnapshot.docs.find(doc => doc.data().name === categoryName);
-
-        if (categoryDoc) {
-          await updateDoc(doc(db, 'categories', categoryDoc.id), {
+        const categoryId = formData.category;
+        if (categoryId) {
+          await updateDoc(doc(db, 'categories', categoryId), {
             tools: arrayUnion(newToolId)
           });
         }
@@ -162,6 +162,7 @@ const ToolsManager = () => {
     setEditingTool({ ...tool, documentId, id: documentId });
     setFormData({
       ...tool,
+      category: getCategoryId(tool.category) || tool.category, // Convert name to ID if needed
       enabled: tool.enabled !== undefined ? tool.enabled : true,
       tags: Array.isArray(tool.tags) ? tool.tags.join(', ') : tool.tags || ''
     });
@@ -187,21 +188,17 @@ const ToolsManager = () => {
         const toolDoc = await getDoc(doc(db, 'tools', id));
         if (toolDoc.exists()) {
           const toolData = toolDoc.data();
-          const categoryName = toolData.category;
+          // Convert category name to ID for backward compatibility
+          const categoryId = getCategoryId(toolData.category);
 
           // Delete the tool
           await deleteDoc(doc(db, 'tools', id));
 
           // Remove tool ID from category's tools array
-          if (categoryName) {
-            const categoriesSnapshot = await getDocs(collection(db, 'categories'));
-            const categoryDoc = categoriesSnapshot.docs.find(doc => doc.data().name === categoryName);
-
-            if (categoryDoc) {
-              await updateDoc(doc(db, 'categories', categoryDoc.id), {
-                tools: arrayRemove(id)
-              });
-            }
+          if (categoryId) {
+            await updateDoc(doc(db, 'categories', categoryId), {
+              tools: arrayRemove(id)
+            });
           }
         }
 
@@ -267,7 +264,7 @@ const ToolsManager = () => {
           >
             <option value="">All Categories</option>
             {categories.map(cat => (
-              <option key={cat.id} value={cat.name}>{cat.name}</option>
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
             ))}
           </select>
         </div>
@@ -305,7 +302,7 @@ const ToolsManager = () => {
                   >
                     <option value="">Select Category</option>
                     {categories.map(cat => (
-                      <option key={cat.id} value={cat.name}>{cat.name}</option>
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
                     ))}
                   </select>
                 </div>
