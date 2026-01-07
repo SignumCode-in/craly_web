@@ -419,7 +419,19 @@ const CategoriesManager = () => {
                 <tr key={category.id} className="border-t border-white/10 hover:bg-white/5">
                   <td className="px-6 py-4 text-xs text-soft-grey font-mono">{category.id}</td>
                   <td className="px-6 py-4 font-medium">{category.name}</td>
-                  <td className="px-6 py-4">{category.iconName || '-'}</td>
+                  <td className="px-6 py-4">
+                    {category.iconName ? (
+                      category.iconName.startsWith('http') ? (
+                        <img
+                          src={category.iconName}
+                          alt={category.name}
+                          className="w-8 h-8 object-contain"
+                        />
+                      ) : (
+                        category.iconName
+                      )
+                    ) : '-'}
+                  </td>
                   <td className="px-6 py-4">{category.toolCount || 0}</td>
                   <td className="px-6 py-4">
                     {category.tools && category.tools.length > 0 ? (
