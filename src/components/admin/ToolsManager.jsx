@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase/config';
-import { Plus, Edit, Trash2, X, Save, Search, Power } from 'lucide-react';
+import { Plus, Edit, Trash2, X, Save, Search, Power, GripVertical, TrendingUp, Loader, LayoutGrid, List, Heart, ExternalLink } from 'lucide-react';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
 const ToolsManager = () => {
   const [tools, setTools] = useState([]);
@@ -12,6 +13,10 @@ const ToolsManager = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [editingTool, setEditingTool] = useState(null);
+  const [showTrendingOrder, setShowTrendingOrder] = useState(false);
+  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
+  const [trendingTools, setTrendingTools] = useState([]);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     category: '',
@@ -37,16 +42,21 @@ const ToolsManager = () => {
       const snapshot = await getDocs(q);
       const toolsData = snapshot.docs.map(docSnapshot => {
         const data = docSnapshot.data();
-        const firestoreDocId = docSnapshot.id; // This is the actual Firestore document ID
-        // Always use Firestore document ID, ignore any 'id' field in the data
+        const firestoreDocId = docSnapshot.id;
         return {
           ...data,
-          id: firestoreDocId,  // Override any id field from data
-          documentId: firestoreDocId  // Store as documentId for clarity
+          id: firestoreDocId,
+          documentId: firestoreDocId
         };
       });
       setTools(toolsData);
       setFilteredTools(toolsData);
+
+      // Update trending tools for reordering
+      const trending = toolsData
+        .filter(t => t.isTrending)
+        .sort((a, b) => (a.trendingOrder || 0) - (b.trendingOrder || 0));
+      setTrendingTools(trending);
     } catch (error) {
       console.error('Error fetching tools:', error);
     } finally {
@@ -54,28 +64,35 @@ const ToolsManager = () => {
     }
   };
 
-  // Helper function to get category ID from either ID or name (for backward compatibility)
   const getCategoryId = (categoryIdOrName) => {
     if (!categoryIdOrName) return null;
     const category = categories.find(cat => cat.id === categoryIdOrName || cat.name === categoryIdOrName);
     return category ? category.id : null;
   };
 
-  // Helper function to get category name by ID
   const getCategoryName = (categoryId) => {
     const category = categories.find(cat => cat.id === categoryId || cat.name === categoryId);
     return category ? category.name : categoryId;
   };
 
+  const getLogoUrl = (tool) => {
+    // if (tool.logoUrl) return tool.logoUrl;
+    // if (!tool.url) return null;
+    try {
+      const domain = new URL(tool.url).hostname;
+      return `https://manifest.im/icon/${domain}`;
+    } catch (e) {
+      return null;
+    }
+  };
+
   useEffect(() => {
     let filtered = tools;
 
-    // Filter by category
     if (selectedCategory) {
       filtered = filtered.filter(tool => tool.category === selectedCategory);
     }
 
-    // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter(tool =>
         tool.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -106,28 +123,21 @@ const ToolsManager = () => {
       };
 
       if (editingTool) {
-        // Use the Firestore document ID - documentId is guaranteed to be the Firestore doc ID
         const documentId = editingTool.documentId || editingTool.id;
         if (!documentId) {
           throw new Error('Document ID is missing. Cannot update tool.');
         }
-        console.log('Updating tool with document ID:', documentId);
         await updateDoc(doc(db, 'tools', documentId), toolData);
 
-        // Update category tools array if category changed
-        // Convert old category name to ID for backward compatibility
         const oldCategoryId = getCategoryId(editingTool.category);
         const newCategoryId = formData.category;
 
         if (oldCategoryId !== newCategoryId) {
-          // Remove from old category
           if (oldCategoryId) {
             await updateDoc(doc(db, 'categories', oldCategoryId), {
               tools: arrayRemove(documentId)
             });
           }
-
-          // Add to new category
           if (newCategoryId) {
             await updateDoc(doc(db, 'categories', newCategoryId), {
               tools: arrayUnion(documentId)
@@ -135,11 +145,9 @@ const ToolsManager = () => {
           }
         }
       } else {
-        // Adding new tool
         const newToolRef = await addDoc(collection(db, 'tools'), toolData);
         const newToolId = newToolRef.id;
 
-        // Add tool ID to category's tools array
         const categoryId = formData.category;
         if (categoryId) {
           await updateDoc(doc(db, 'categories', categoryId), {
@@ -157,12 +165,11 @@ const ToolsManager = () => {
   };
 
   const handleEdit = (tool) => {
-    // Ensure we preserve the Firestore document ID
     const documentId = tool.documentId || tool.id;
     setEditingTool({ ...tool, documentId, id: documentId });
     setFormData({
       ...tool,
-      category: getCategoryId(tool.category) || tool.category, // Convert name to ID if needed
+      category: getCategoryId(tool.category) || tool.category,
       enabled: tool.enabled !== undefined ? tool.enabled : true,
       tags: Array.isArray(tool.tags) ? tool.tags.join(', ') : tool.tags || ''
     });
@@ -184,29 +191,54 @@ const ToolsManager = () => {
   const handleDelete = async (id) => {
     if (confirm('Are you sure you want to delete this tool?')) {
       try {
-        // Get the tool to find its category before deleting
         const toolDoc = await getDoc(doc(db, 'tools', id));
         if (toolDoc.exists()) {
           const toolData = toolDoc.data();
-          // Convert category name to ID for backward compatibility
           const categoryId = getCategoryId(toolData.category);
 
-          // Delete the tool
           await deleteDoc(doc(db, 'tools', id));
 
-          // Remove tool ID from category's tools array
           if (categoryId) {
             await updateDoc(doc(db, 'categories', categoryId), {
               tools: arrayRemove(id)
             });
           }
         }
-
         fetchTools();
       } catch (error) {
         console.error('Error deleting tool:', error);
         alert('Error deleting tool: ' + error.message);
       }
+    }
+  };
+
+  const handleDragEnd = (result) => {
+    if (!result.destination) return;
+
+    const items = Array.from(trendingTools);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    setTrendingTools(items);
+  };
+
+  const saveTrendingOrder = async () => {
+    setIsSavingOrder(true);
+    try {
+      const promises = trendingTools.map((tool, index) =>
+        updateDoc(doc(db, 'tools', tool.id), {
+          trendingOrder: index
+        })
+      );
+      await Promise.all(promises);
+      fetchTools();
+      setShowTrendingOrder(false);
+      alert('Trending order updated successfully!');
+    } catch (error) {
+      console.error('Error saving trending order:', error);
+      alert('Error saving order: ' + error.message);
+    } finally {
+      setIsSavingOrder(false);
     }
   };
 
@@ -233,20 +265,29 @@ const ToolsManager = () => {
   }
 
   return (
-    <div>
+    <div className="space-y-6">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">Tools Manager</h1>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors"
-        >
-          <Plus className="w-5 h-5" />
-          Add Tool
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => setShowTrendingOrder(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded-lg transition-colors"
+          >
+            <TrendingUp className="w-5 h-5" />
+            Manage Trending Order
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors"
+          >
+            <Plus className="w-5 h-5" />
+            Add Tool
+          </button>
+        </div>
       </div>
 
-      <div className="mb-6 flex gap-4">
-        <div className="relative max-w-md flex-1">
+      <div className="mb-6 flex flex-col md:flex-row gap-4 items-center">
+        <div className="relative flex-1 w-full">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-soft-grey" />
           <input
             type="text"
@@ -256,7 +297,7 @@ const ToolsManager = () => {
             className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary text-white placeholder-soft-grey"
           />
         </div>
-        <div className="w-64">
+        <div className="w-full md:w-64">
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
@@ -268,7 +309,311 @@ const ToolsManager = () => {
             ))}
           </select>
         </div>
+        <div className="flex bg-white/5 border border-white/10 rounded-lg p-1">
+          <button
+            onClick={() => setViewMode('grid')}
+            className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-primary text-white shadow-lg' : 'text-soft-grey hover:text-white'}`}
+            title="Grid View"
+          >
+            <LayoutGrid className="w-5 h-5" />
+          </button>
+          <button
+            onClick={() => setViewMode('list')}
+            className={`p-1.5 rounded-md transition-all ${viewMode === 'list' ? 'bg-primary text-white shadow-lg' : 'text-soft-grey hover:text-white'}`}
+            title="List View"
+          >
+            <List className="w-5 h-5" />
+          </button>
+        </div>
       </div>
+
+      {viewMode === 'list' ? (
+        <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden shadow-2xl backdrop-blur-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-white/5">
+                <tr>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-soft-grey">Tool</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-soft-grey">Category</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-soft-grey">Pricing</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-soft-grey">Status</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-soft-grey">Trending</th>
+                  <th className="px-6 py-4 text-right text-sm font-semibold text-soft-grey">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {filteredTools.map((tool) => (
+                  <tr key={tool.id} className="group hover:bg-white/5 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                          {getLogoUrl(tool) ? (
+                            <img
+                              src={getLogoUrl(tool)}
+                              alt=""
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <span className={`text-xs font-bold text-primary ${getLogoUrl(tool) ? 'hidden' : 'flex'}`}>
+                            {tool.name.substring(0, 2).toUpperCase()}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="font-medium text-white">{tool.name}</p>
+                          <a href={tool.url} target="_blank" rel="noopener noreferrer" className="text-xs text-soft-grey hover:text-primary flex items-center gap-1">
+                            Link <ExternalLink className="w-2 h-2" />
+                          </a>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="px-2 py-1 bg-white/5 rounded text-xs text-soft-grey border border-white/5">
+                        {getCategoryName(tool.category)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${tool.pricing === 'Free' ? 'bg-green-500/10 text-green-400' :
+                        tool.pricing === 'Paid' ? 'bg-blue-500/10 text-blue-400' :
+                          'bg-orange-500/10 text-orange-400'
+                        }`}>
+                        {tool.pricing}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleToggleEnabled(tool)}
+                          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-300 focus:outline-none ${tool.enabled !== false ? 'bg-primary/20 border border-primary/30' : 'bg-white/5 border border-white/10'
+                            }`}
+                        >
+                          <span
+                            className={`inline-block h-3 w-3 transform rounded-full transition-all duration-300 shadow-sm ${tool.enabled !== false ? 'translate-x-5 bg-primary' : 'translate-x-1 bg-soft-grey'
+                              }`}
+                          />
+                        </button>
+                        <span className={`text-[10px] font-medium uppercase tracking-wider ${tool.enabled !== false ? 'text-primary' : 'text-soft-grey'}`}>
+                          {tool.enabled !== false ? 'On' : 'Off'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {tool.isTrending ? (
+                        <div className="flex items-center gap-1.5 text-accent">
+                          <TrendingUp className="w-4 h-4" />
+                          <span className="text-xs font-medium">#{tool.trendingOrder !== undefined ? tool.trendingOrder + 1 : 'T'}</span>
+                        </div>
+                      ) : (
+                        <span className="text-soft-grey text-xs">No</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => handleEdit(tool)}
+                          className="p-2 hover:bg-primary/10 rounded-lg transition-colors group/edit"
+                        >
+                          <Edit className="w-4 h-4 text-soft-grey group-hover/edit:text-primary" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(tool.id)}
+                          className="p-2 hover:bg-red-500/10 rounded-lg transition-colors group/del"
+                        >
+                          <Trash2 className="w-4 h-4 text-soft-grey group-hover/del:text-red-400" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredTools.map((tool) => (
+            <div key={tool.id} className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:border-primary/30 transition-all duration-300 group flex flex-col relative overflow-hidden">
+              {/* Background Glow */}
+              <div className="absolute -top-12 -right-12 w-24 h-24 bg-primary/5 blur-3xl rounded-full group-hover:bg-primary/10 transition-colors" />
+
+              <div className="flex items-start justify-between mb-4">
+                <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 overflow-hidden flex-shrink-0 shadow-inner flex items-center justify-center group-hover:border-primary/20 transition-colors">
+                  {getLogoUrl(tool) ? (
+                    <img
+                      src={getLogoUrl(tool)}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <span className={`text-lg font-bold text-primary ${getLogoUrl(tool) ? 'hidden' : 'flex'}`}>
+                    {tool.name.substring(0, 2).toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    onClick={() => handleEdit(tool)}
+                    className="p-2 hover:bg-primary/10 rounded-xl transition-colors"
+                  >
+                    <Edit className="w-4 h-4 text-primary" />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(tool.id)}
+                    className="p-2 hover:bg-red-500/10 rounded-xl transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-400" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <h3 className="text-lg font-bold text-white group-hover:text-primary transition-colors truncate">{tool.name}</h3>
+                  {tool.isTrending && (
+                    <TrendingUp className="w-4 h-4 text-accent" title="Trending Tool" />
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  <span className="px-2 py-0.5 bg-white/5 rounded text-[10px] text-soft-grey border border-white/5 capitalize">
+                    {getCategoryName(tool.category)}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${tool.pricing === 'Free' ? 'bg-green-500/10 text-green-400' :
+                    tool.pricing === 'Paid' ? 'bg-blue-500/10 text-blue-400' :
+                      'bg-orange-500/10 text-orange-400'
+                    }`}>
+                    {tool.pricing}
+                  </span>
+                </div>
+                <p className="text-sm text-soft-grey line-clamp-2 mb-4 h-10">
+                  {tool.shortDescription}
+                </p>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1.5 text-xs text-soft-grey">
+                    <Heart className="w-3.5 h-3.5 fill-soft-grey/20" />
+                    {tool.likesCount || 0}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleToggleEnabled(tool)}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-all duration-300 focus:outline-none ${tool.enabled !== false ? 'bg-primary/20 border border-primary/30' : 'bg-white/5 border border-white/10'
+                        }`}
+                    >
+                      <span
+                        className={`inline-block h-3 w-3 transform rounded-full transition-all duration-300 shadow-sm ${tool.enabled !== false ? 'translate-x-5 bg-primary' : 'translate-x-1 bg-soft-grey'
+                          }`}
+                      />
+                    </button>
+                    <span className={`text-[10px] font-bold uppercase ${tool.enabled !== false ? 'text-primary' : 'text-soft-grey'}`}>
+                      {tool.enabled !== false ? 'Online' : 'Offline'}
+                    </span>
+                  </div>
+                </div>
+                <a
+                  href={tool.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 bg-white/5 hover:bg-primary/20 rounded-lg text-soft-grey hover:text-primary transition-all"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showTrendingOrder && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-dark border border-white/10 rounded-xl p-6 max-w-lg w-full max-h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold">Trending Order</h2>
+              <button
+                onClick={() => {
+                  setShowTrendingOrder(false);
+                  setTrendingTools(tools.filter(t => t.isTrending).sort((a, b) => (a.trendingOrder || 0) - (b.trendingOrder || 0)));
+                }}
+                className="text-soft-grey hover:text-white"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <p className="text-soft-grey mb-4 text-sm">Drag tools to change their display order on the landing page.</p>
+
+            <div className="flex-1 overflow-y-auto mb-6 custom-scrollbar pr-2">
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <Droppable droppableId="trending-tools">
+                  {(provided) => (
+                    <div {...provided.droppableProps} ref={provided.innerRef} className="space-y-2">
+                      {trendingTools.map((tool, index) => (
+                        <Draggable key={tool.id} draggableId={tool.id} index={index}>
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={`flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-lg group transition-colors ${snapshot.isDragging ? 'bg-white/10 border-primary/50 shadow-lg' : 'hover:bg-white/8'
+                                }`}
+                            >
+                              <div {...provided.dragHandleProps} className="text-white/20 group-hover:text-white/50">
+                                <GripVertical className="w-5 h-5" />
+                              </div>
+                              <div className="w-8 h-8 rounded-md overflow-hidden bg-white/10 flex-shrink-0 flex items-center justify-center">
+                                {getLogoUrl(tool) ? (
+                                  <img
+                                    src={getLogoUrl(tool)}
+                                    alt=""
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.target.style.display = 'none';
+                                      e.target.nextSibling.style.display = 'flex';
+                                    }}
+                                  />
+                                ) : null}
+                                <div className={`w-full h-full flex items-center justify-center text-[10px] font-bold ${getLogoUrl(tool) ? 'hidden' : 'flex'}`}>
+                                  {tool.name.substring(0, 2).toUpperCase()}
+                                </div>
+                              </div>
+                              <div className="flex-1 font-medium">{tool.name}</div>
+                              <div className="text-xs text-soft-grey bg-white/5 px-2 py-1 rounded">
+                                #{index + 1}
+                              </div>
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                onClick={saveTrendingOrder}
+                disabled={isSavingOrder}
+                className="flex-1 flex items-center justify-center gap-2 px-6 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg transition-all disabled:opacity-50"
+              >
+                {isSavingOrder ? (
+                  <Loader className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Save className="w-5 h-5" />
+                )}
+                Save New Order
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showForm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -429,70 +774,8 @@ const ToolsManager = () => {
           </div>
         </div>
       )}
-
-      <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-white/5">
-              <tr>
-                <th className="px-6 py-4 text-left text-sm font-semibold">Name</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold">Category</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold">Pricing</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold">Status</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold">Trending</th>
-                <th className="px-6 py-4 text-left text-sm font-semibold">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTools.map((tool) => (
-                <tr key={tool.id} className="border-t border-white/10 hover:bg-white/5">
-                  <td className="px-6 py-4">{tool.name}</td>
-                  <td className="px-6 py-4">{getCategoryName(tool.category)}</td>
-                  <td className="px-6 py-4">{tool.pricing}</td>
-                  <td className="px-6 py-4">
-                    <button
-                      onClick={() => handleToggleEnabled(tool)}
-                      className={`flex items-center gap-2 px-3 py-1 rounded text-xs font-medium transition-colors ${tool.enabled !== false
-                        ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                        : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-                        }`}
-                    >
-                      <Power className={`w-3 h-3 ${tool.enabled !== false ? '' : 'opacity-50'}`} />
-                      {tool.enabled !== false ? 'Enabled' : 'Disabled'}
-                    </button>
-                  </td>
-                  <td className="px-6 py-4">
-                    {tool.isTrending ? (
-                      <span className="px-2 py-1 bg-accent/20 text-accent rounded text-xs">Yes</span>
-                    ) : (
-                      <span className="text-soft-grey">No</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEdit(tool)}
-                        className="p-2 hover:bg-white/10 rounded transition-colors"
-                      >
-                        <Edit className="w-4 h-4 text-primary" />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(tool.id)}
-                        className="p-2 hover:bg-white/10 rounded transition-colors"
-                      >
-                        <Trash2 className="w-4 h-4 text-red-400" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
     </div>
   );
 };
 
 export default ToolsManager;
-

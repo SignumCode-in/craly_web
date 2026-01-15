@@ -12,6 +12,7 @@ import BannerManager from '../../components/admin/BannerManager';
 import PrivacyPolicyManager from '../../components/admin/PrivacyPolicyManager';
 import LandingPageManager from '../../components/admin/LandingPageManager';
 import JsonUploadManager from '../../components/admin/JsonUploadManager';
+import UsersManager from '../../components/admin/UsersManager';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -46,6 +47,8 @@ const AdminDashboard = () => {
         return <LandingPageManager />;
       case 'json-upload':
         return <JsonUploadManager />;
+      case 'users':
+        return <UsersManager />;
       default:
         return <DashboardHome />;
     }

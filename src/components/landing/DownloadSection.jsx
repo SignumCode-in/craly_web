@@ -1,35 +1,58 @@
 import { motion } from 'framer-motion';
-import { ArrowRight, Smartphone } from 'lucide-react';
 
 const DownloadSection = () => {
   return (
-    <section className="py-24 px-4 sm:px-6 lg:px-8 bg-gradient-to-b from-dark to-dark/95">
-      <div className="max-w-4xl mx-auto text-center">
+    <section className="py-24 px-4 bg-dark">
+      <div className="max-w-6xl mx-auto">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          className="bg-[#1A1A1A] rounded-[4rem] p-10 md:p-20 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-12 border border-white/5"
+          initial={{ opacity: 0, scale: 0.95 }}
+          whileInView={{ opacity: 1, scale: 1 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.8 }}
         >
-          <div className="flex justify-center mb-6">
-            <div className="w-16 h-16 bg-primary/20 rounded-2xl flex items-center justify-center">
-              <Smartphone className="w-8 h-8 text-primary" />
-            </div>
-          </div>
-          <h2 className="text-4xl md:text-5xl font-bold mb-6">Get Craly on Your Phone</h2>
-          <p className="text-xl text-soft-grey mb-12 max-w-2xl mx-auto">
-            Take your AI toolkit wherever you go. Download now and start building.
-          </p>
+          {/* Content */}
+          <div className="flex-1 text-center md:text-left relative z-10">
+            <h2 className="text-5xl md:text-7xl font-extrabold mb-6 leading-tight tracking-tight">
+              Download the <br className="hidden md:block" /> app now
+            </h2>
+            <p className="text-2xl text-white font-semibold mb-2">
+              The India's #1 AI discovery app
+            </p>
+            <p className="text-soft-grey text-lg mb-12 max-w-sm">
+              Craly brings more than 1000 AI tools and 100+ ready-to-use workflows
+            </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <button className="px-8 py-4 bg-primary hover:bg-primary/90 text-white rounded-lg font-semibold text-lg transition-all duration-300 flex items-center gap-2 group">
-              <span>Play Store</span>
-              <span className="text-sm opacity-70">(Coming Soon)</span>
-            </button>
-            <button className="px-8 py-4 bg-transparent border-2 border-accent text-accent hover:bg-accent/10 rounded-lg font-semibold text-lg transition-all duration-300 flex items-center gap-2 group">
-              Join Waitlist
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-            </button>
+            <a
+              href="https://play.google.com/store/apps/details?id=com.signumcode.craly"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block transition-transform hover:scale-105 active:scale-95 drop-shadow-2xl"
+            >
+              <img
+                src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg"
+                alt="Get it on Google Play"
+                className="h-16"
+              />
+            </a>
+          </div>
+
+          {/* Image */}
+          <div className="flex-1 flex justify-center md:justify-end relative mr-[-40px] mb-[-80px] md:mb-[-120px]">
+            <motion.div
+              className="relative w-80 h-80 md:w-[500px] md:h-[500px]"
+              initial={{ y: 50, opacity: 0 }}
+              whileInView={{ y: 0, opacity: 1 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+            >
+              <img
+                src="/assets/surprise_avtar.png"
+                alt="3D Character"
+                className="w-full h-full object-contain relative z-10"
+              />
+              <div className="absolute bottom-[20%] left-1/2 -translate-x-1/2 w-full h-[30%] bg-blue-500/20 blur-[100px] rounded-full -z-10" />
+            </motion.div>
           </div>
         </motion.div>
       </div>
@@ -38,4 +61,5 @@ const DownloadSection = () => {
 };
 
 export default DownloadSection;
+
 
