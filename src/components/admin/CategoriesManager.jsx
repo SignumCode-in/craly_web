@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, setDoc } from 'firebase/firestore';
-import { db } from '../../firebase/config';
+import { categoryService } from '../../api/categoryService';
+import { toolService } from '../../api/toolService';
 import { Plus, Edit, Trash2, X, Save, Search, Power, ChevronDown } from 'lucide-react';
 
 const CategoriesManager = () => {
@@ -31,11 +31,9 @@ const CategoriesManager = () => {
 
   const fetchCategories = async () => {
     try {
-      const q = query(collection(db, 'categories'), orderBy('name'));
-      const snapshot = await getDocs(q);
-      const categoriesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setCategories(categoriesData);
-      setFilteredCategories(categoriesData);
+      const data = await categoryService.getAll();
+      setCategories(data);
+      setFilteredCategories(data);
     } catch (error) {
       console.error('Error fetching categories:', error);
     } finally {
@@ -45,10 +43,8 @@ const CategoriesManager = () => {
 
   const fetchTools = async () => {
     try {
-      const q = query(collection(db, 'tools'), orderBy('name'));
-      const snapshot = await getDocs(q);
-      const toolsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setTools(toolsData);
+      const data = await toolService.getAll({ limit: 0 });
+      setTools(data);
     } catch (error) {
       console.error('Error fetching tools:', error);
     }
@@ -101,13 +97,12 @@ const CategoriesManager = () => {
 
       if (editingCategory) {
         // Update existing category
-        await updateDoc(doc(db, 'categories', editingCategory.id), categoryData);
+        await categoryService.update(editingCategory.id, categoryData);
       } else {
-        // Create new category with custom document ID
-        const categoryId = formData.id || generateCategoryId(formData.name);
-        await setDoc(doc(db, 'categories', categoryId), {
+        // Create new category
+        await categoryService.create({
           ...categoryData,
-          id: categoryId
+          _id: formData.id || generateCategoryId(formData.name)
         });
       }
 
@@ -128,14 +123,14 @@ const CategoriesManager = () => {
       toolCount: category.toolCount || 0,
       description: category.description || '',
       enabled: category.enabled !== undefined ? category.enabled : true,
-      tools: category.tools || []
+      tools: category.tools ? category.tools.map(t => typeof t === 'object' ? (t.id || t._id) : t) : []
     });
     setShowForm(true);
   };
 
   const handleToggleEnabled = async (category) => {
     try {
-      await updateDoc(doc(db, 'categories', category.id), {
+      await categoryService.update(category.id, {
         enabled: !category.enabled
       });
       fetchCategories();
@@ -148,7 +143,7 @@ const CategoriesManager = () => {
   const handleDelete = async (id) => {
     if (confirm('Are you sure you want to delete this category?')) {
       try {
-        await deleteDoc(doc(db, 'categories', id));
+        await categoryService.delete(id);
         fetchCategories();
       } catch (error) {
         console.error('Error deleting category:', error);

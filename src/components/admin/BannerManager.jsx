@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp } from 'firebase/firestore';
+import { bannerService } from '../../api/bannerService';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { db, storage } from '../../firebase/config';
+import { storage } from '../../firebase/config';
 import { Plus, Edit, Trash2, X, Save, Search, Power, Image as ImageIcon, Upload as UploadIcon } from 'lucide-react';
 
 const BannerManager = () => {
@@ -31,15 +31,9 @@ const BannerManager = () => {
 
   const fetchBanners = async () => {
     try {
-      const q = query(collection(db, 'banners'), orderBy('order'));
-      const snapshot = await getDocs(q);
-      const bannersData = snapshot.docs.map(docSnapshot => ({
-        id: docSnapshot.id,
-        documentId: docSnapshot.id,
-        ...docSnapshot.data()
-      }));
-      setBanners(bannersData);
-      setFilteredBanners(bannersData);
+      const data = await bannerService.getAll();
+      setBanners(data);
+      setFilteredBanners(data);
     } catch (error) {
       console.error('Error fetching banners:', error);
     } finally {
@@ -105,16 +99,13 @@ const BannerManager = () => {
       const bannerData = {
         ...formData,
         imageUrl,
-        order: parseInt(formData.order) || 0,
-        updatedAt: serverTimestamp()
+        order: parseInt(formData.order) || 0
       };
 
       if (editingBanner) {
-        const documentId = editingBanner.documentId || editingBanner.id;
-        await updateDoc(doc(db, 'banners', documentId), bannerData);
+        await bannerService.update(editingBanner.id, bannerData);
       } else {
-        bannerData.createdAt = serverTimestamp();
-        await addDoc(collection(db, 'banners'), bannerData);
+        await bannerService.create(bannerData);
       }
 
       resetForm();
@@ -145,10 +136,8 @@ const BannerManager = () => {
 
   const handleToggleEnabled = async (banner) => {
     try {
-      const documentId = banner.documentId || banner.id;
-      await updateDoc(doc(db, 'banners', documentId), {
-        enabled: !banner.enabled,
-        updatedAt: serverTimestamp()
+      await bannerService.update(banner.id, {
+        enabled: !banner.enabled
       });
       fetchBanners();
     } catch (error) {
@@ -160,7 +149,7 @@ const BannerManager = () => {
   const handleDelete = async (id) => {
     if (confirm('Are you sure you want to delete this banner?')) {
       try {
-        await deleteDoc(doc(db, 'banners', id));
+        await bannerService.delete(id);
         fetchBanners();
       } catch (error) {
         console.error('Error deleting banner:', error);
@@ -406,11 +395,10 @@ const BannerManager = () => {
                   <td className="px-6 py-4">
                     <button
                       onClick={() => handleToggleEnabled(banner)}
-                      className={`flex items-center gap-2 px-3 py-1 rounded text-xs font-medium transition-colors ${
-                        banner.enabled !== false
+                      className={`flex items-center gap-2 px-3 py-1 rounded text-xs font-medium transition-colors ${banner.enabled !== false
                           ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
                           : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
-                      }`}
+                        }`}
                     >
                       <Power className={`w-3 h-3 ${banner.enabled !== false ? '' : 'opacity-50'}`} />
                       {banner.enabled !== false ? 'Enabled' : 'Disabled'}

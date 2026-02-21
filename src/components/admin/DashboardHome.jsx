@@ -1,6 +1,12 @@
-import { useEffect, useState } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../../firebase/config';
+import { useState, useEffect } from 'react';
+import { adminService } from '../../api/adminService';
+import { toolService } from '../../api/toolService';
+import { categoryService } from '../../api/categoryService';
+import { workflowService } from '../../api/workflowService';
+import { postService } from '../../api/postService';
+import { bannerService } from '../../api/bannerService';
+import { settingsService } from '../../api/settingsService';
+import { userService } from '../../api/userService';
 import { FolderTree, Tag, Workflow, FileText, Download, Loader, Users, PieChart, BarChart as BarChartIcon } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -23,74 +29,9 @@ const DashboardHome = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [toolsSnap, categoriesSnap, workflowsSnap, postsSnap, usersSnap] = await Promise.all([
-          getDocs(collection(db, 'tools')),
-          getDocs(collection(db, 'categories')),
-          getDocs(collection(db, 'workflows')),
-          getDocs(collection(db, 'posts')),
-          getDocs(collection(db, 'users'))
-        ]);
-
-        // Process user analytics
-        const heardFromMap = {};
-        const interestsMap = {};
-        const dailyMap = {};
-
-        // Initialize last 7 days
-        for (let i = 6; i >= 0; i--) {
-          const date = new Date();
-          date.setDate(date.getDate() - i);
-          const dateStr = date.toISOString().split('T')[0];
-          dailyMap[dateStr] = 0;
-        }
-
-        usersSnap.docs.forEach(doc => {
-          const data = doc.data();
-
-          // Daily Registrations
-          if (data.createdAt) {
-            const date = data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt);
-            if (!isNaN(date.getTime())) {
-              const dateStr = date.toISOString().split('T')[0];
-              if (dailyMap.hasOwnProperty(dateStr)) {
-                dailyMap[dateStr]++;
-              }
-            }
-          }
-
-          // Heard From aggregation
-          if (data.heardFrom) {
-            heardFromMap[data.heardFrom] = (heardFromMap[data.heardFrom] || 0) + 1;
-          }
-
-          // Interests aggregation
-          if (data.interests && Array.isArray(data.interests)) {
-            data.interests.forEach(interest => {
-              interestsMap[interest] = (interestsMap[interest] || 0) + 1;
-            });
-          }
-        });
-
-        // Convert dailyMap to array for easier charting
-        const dailyRegistrations = Object.entries(dailyMap).map(([date, count]) => ({
-          date: new Date(date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }),
-          count
-        }));
-
-        setStats({
-          tools: toolsSnap.size,
-          categories: categoriesSnap.size,
-          workflows: workflowsSnap.size,
-          posts: postsSnap.size,
-          users: usersSnap.size
-        });
-
-        setAnalytics({
-          heardFrom: heardFromMap,
-          interests: interestsMap,
-          dailyRegistrations
-        });
-
+        const result = await adminService.getStats();
+        setStats(result.stats);
+        setAnalytics(result.analytics);
       } catch (error) {
         console.error('Error fetching stats:', error);
       } finally {
@@ -104,26 +45,24 @@ const DashboardHome = () => {
   const exportAllData = async () => {
     setExporting(true);
     try {
-      // Fetch all collections
-      const [toolsSnap, categoriesSnap, workflowsSnap, postsSnap, bannersSnap, settingsSnap, usersSnap] = await Promise.all([
-        getDocs(collection(db, 'tools')),
-        getDocs(collection(db, 'categories')),
-        getDocs(collection(db, 'workflows')),
-        getDocs(collection(db, 'posts')),
-        getDocs(collection(db, 'banners')),
-        getDocs(collection(db, 'settings')),
-        getDocs(collection(db, 'users'))
+      // Fetch all data from services
+      const [tools, categories, workflows, posts, banners, users] = await Promise.all([
+        toolService.getAll(),
+        categoryService.getAll(),
+        workflowService.getAll(),
+        postService.getAll(),
+        bannerService.getAll(),
+        userService.getAll()
       ]);
 
       // Format data to match import structure
       const exportData = {
-        categories: categoriesSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-        workflows: workflowsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-        tools: toolsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-        posts: postsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-        banners: bannersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-        settings: settingsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })),
-        users: usersSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+        categories,
+        workflows,
+        tools,
+        posts,
+        banners,
+        users
       };
 
       // Create JSON string

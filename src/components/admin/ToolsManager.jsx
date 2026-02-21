@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
-import { db } from '../../firebase/config';
+import { toolService } from '../../api/toolService';
+import { categoryService } from '../../api/categoryService';
 import { Plus, Edit, Trash2, X, Save, Search, Power, GripVertical, TrendingUp, Loader, LayoutGrid, List, Heart, ExternalLink } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
@@ -27,6 +27,7 @@ const ToolsManager = () => {
     pricing: 'Freemium',
     tags: '',
     isTrending: false,
+    isPartnerTool: false,
     enabled: true,
     likesCount: 0
   });
@@ -38,22 +39,12 @@ const ToolsManager = () => {
 
   const fetchTools = async () => {
     try {
-      const q = query(collection(db, 'tools'), orderBy('name'));
-      const snapshot = await getDocs(q);
-      const toolsData = snapshot.docs.map(docSnapshot => {
-        const data = docSnapshot.data();
-        const firestoreDocId = docSnapshot.id;
-        return {
-          ...data,
-          id: firestoreDocId,
-          documentId: firestoreDocId
-        };
-      });
-      setTools(toolsData);
-      setFilteredTools(toolsData);
+      const data = await toolService.getAll();
+      setTools(data);
+      setFilteredTools(data);
 
       // Update trending tools for reordering
-      const trending = toolsData
+      const trending = data
         .filter(t => t.isTrending)
         .sort((a, b) => (a.trendingOrder || 0) - (b.trendingOrder || 0));
       setTrendingTools(trending);
@@ -66,11 +57,14 @@ const ToolsManager = () => {
 
   const getCategoryId = (categoryIdOrName) => {
     if (!categoryIdOrName) return null;
+    if (typeof categoryIdOrName === 'object') return categoryIdOrName.id || categoryIdOrName._id;
     const category = categories.find(cat => cat.id === categoryIdOrName || cat.name === categoryIdOrName);
     return category ? category.id : null;
   };
 
   const getCategoryName = (categoryId) => {
+    if (!categoryId) return 'Uncategorized';
+    if (typeof categoryId === 'object') return categoryId.name || 'Unknown';
     const category = categories.find(cat => cat.id === categoryId || cat.name === categoryId);
     return category ? category.name : categoryId;
   };
@@ -95,7 +89,7 @@ const ToolsManager = () => {
 
     if (searchTerm) {
       filtered = filtered.filter(tool =>
-        tool.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (tool.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         getCategoryName(tool.category)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         tool.shortDescription?.toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -106,8 +100,8 @@ const ToolsManager = () => {
 
   const fetchCategories = async () => {
     try {
-      const snapshot = await getDocs(collection(db, 'categories'));
-      setCategories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const data = await categoryService.getAll();
+      setCategories(data);
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
@@ -123,37 +117,9 @@ const ToolsManager = () => {
       };
 
       if (editingTool) {
-        const documentId = editingTool.documentId || editingTool.id;
-        if (!documentId) {
-          throw new Error('Document ID is missing. Cannot update tool.');
-        }
-        await updateDoc(doc(db, 'tools', documentId), toolData);
-
-        const oldCategoryId = getCategoryId(editingTool.category);
-        const newCategoryId = formData.category;
-
-        if (oldCategoryId !== newCategoryId) {
-          if (oldCategoryId) {
-            await updateDoc(doc(db, 'categories', oldCategoryId), {
-              tools: arrayRemove(documentId)
-            });
-          }
-          if (newCategoryId) {
-            await updateDoc(doc(db, 'categories', newCategoryId), {
-              tools: arrayUnion(documentId)
-            });
-          }
-        }
+        await toolService.update(editingTool.id, toolData);
       } else {
-        const newToolRef = await addDoc(collection(db, 'tools'), toolData);
-        const newToolId = newToolRef.id;
-
-        const categoryId = formData.category;
-        if (categoryId) {
-          await updateDoc(doc(db, 'categories', categoryId), {
-            tools: arrayUnion(newToolId)
-          });
-        }
+        await toolService.create(toolData);
       }
 
       resetForm();
@@ -171,6 +137,7 @@ const ToolsManager = () => {
       ...tool,
       category: getCategoryId(tool.category) || tool.category,
       enabled: tool.enabled !== undefined ? tool.enabled : true,
+      isPartnerTool: tool.isPartnerTool !== undefined ? tool.isPartnerTool : false,
       tags: Array.isArray(tool.tags) ? tool.tags.join(', ') : tool.tags || ''
     });
     setShowForm(true);
@@ -178,7 +145,7 @@ const ToolsManager = () => {
 
   const handleToggleEnabled = async (tool) => {
     try {
-      await updateDoc(doc(db, 'tools', tool.id), {
+      await toolService.update(tool.id, {
         enabled: !tool.enabled
       });
       fetchTools();
@@ -191,19 +158,7 @@ const ToolsManager = () => {
   const handleDelete = async (id) => {
     if (confirm('Are you sure you want to delete this tool?')) {
       try {
-        const toolDoc = await getDoc(doc(db, 'tools', id));
-        if (toolDoc.exists()) {
-          const toolData = toolDoc.data();
-          const categoryId = getCategoryId(toolData.category);
-
-          await deleteDoc(doc(db, 'tools', id));
-
-          if (categoryId) {
-            await updateDoc(doc(db, 'categories', categoryId), {
-              tools: arrayRemove(id)
-            });
-          }
-        }
+        await toolService.delete(id);
         fetchTools();
       } catch (error) {
         console.error('Error deleting tool:', error);
@@ -226,7 +181,7 @@ const ToolsManager = () => {
     setIsSavingOrder(true);
     try {
       const promises = trendingTools.map((tool, index) =>
-        updateDoc(doc(db, 'tools', tool.id), {
+        toolService.update(tool.id, {
           trendingOrder: index
         })
       );
@@ -253,6 +208,7 @@ const ToolsManager = () => {
       pricing: 'Freemium',
       tags: '',
       isTrending: false,
+      isPartnerTool: false,
       enabled: true,
       likesCount: 0
     });
@@ -359,7 +315,7 @@ const ToolsManager = () => {
                             />
                           ) : null}
                           <span className={`text-xs font-bold text-primary ${getLogoUrl(tool) ? 'hidden' : 'flex'}`}>
-                            {tool.name.substring(0, 2).toUpperCase()}
+                            {(tool.name || '??').substring(0, 2).toUpperCase()}
                           </span>
                         </div>
                         <div>
@@ -401,14 +357,22 @@ const ToolsManager = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      {tool.isTrending ? (
-                        <div className="flex items-center gap-1.5 text-accent">
-                          <TrendingUp className="w-4 h-4" />
-                          <span className="text-xs font-medium">#{tool.trendingOrder !== undefined ? tool.trendingOrder + 1 : 'T'}</span>
-                        </div>
-                      ) : (
-                        <span className="text-soft-grey text-xs">No</span>
-                      )}
+                      <div className="flex flex-col gap-1">
+                        {tool.isTrending ? (
+                          <div className="flex items-center gap-1.5 text-accent">
+                            <TrendingUp className="w-4 h-4" />
+                            <span className="text-xs font-medium">#{tool.trendingOrder !== undefined ? tool.trendingOrder + 1 : 'T'}</span>
+                          </div>
+                        ) : (
+                          <span className="text-soft-grey text-xs">No Trending</span>
+                        )}
+                        {tool.isPartnerTool && (
+                          <div className="flex items-center gap-1.5 text-blue-400">
+                            <Heart className="w-4 h-4" />
+                            <span className="text-xs font-medium">Partner</span>
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
@@ -453,7 +417,7 @@ const ToolsManager = () => {
                     />
                   ) : null}
                   <span className={`text-lg font-bold text-primary ${getLogoUrl(tool) ? 'hidden' : 'flex'}`}>
-                    {tool.name.substring(0, 2).toUpperCase()}
+                    {(tool.name || '??').substring(0, 2).toUpperCase()}
                   </span>
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -477,6 +441,9 @@ const ToolsManager = () => {
                   <h3 className="text-lg font-bold text-white group-hover:text-primary transition-colors truncate">{tool.name}</h3>
                   {tool.isTrending && (
                     <TrendingUp className="w-4 h-4 text-accent" title="Trending Tool" />
+                  )}
+                  {tool.isPartnerTool && (
+                    <Heart className="w-4 h-4 text-blue-400" title="Partner Tool" />
                   )}
                 </div>
                 <div className="flex flex-wrap gap-2 mb-3">
@@ -579,7 +546,7 @@ const ToolsManager = () => {
                                   />
                                 ) : null}
                                 <div className={`w-full h-full flex items-center justify-center text-[10px] font-bold ${getLogoUrl(tool) ? 'hidden' : 'flex'}`}>
-                                  {tool.name.substring(0, 2).toUpperCase()}
+                                  {(tool.name || '??').substring(0, 2).toUpperCase()}
                                 </div>
                               </div>
                               <div className="flex-1 font-medium">{tool.name}</div>
@@ -731,7 +698,7 @@ const ToolsManager = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <div className="flex items-center gap-2">
                   <input
                     type="checkbox"
@@ -741,6 +708,16 @@ const ToolsManager = () => {
                     className="w-4 h-4"
                   />
                   <label htmlFor="isTrending" className="text-sm font-medium">Is Trending</label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="isPartnerTool"
+                    checked={formData.isPartnerTool}
+                    onChange={(e) => setFormData({ ...formData, isPartnerTool: e.target.checked })}
+                    className="w-4 h-4"
+                  />
+                  <label htmlFor="isPartnerTool" className="text-sm font-medium flex items-center gap-1"><Heart className="w-4 h-4 text-blue-400" /> Partner Tool</label>
                 </div>
                 <div className="flex items-center gap-2">
                   <input

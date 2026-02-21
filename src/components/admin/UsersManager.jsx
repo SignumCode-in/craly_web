@@ -1,6 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
-import { db } from '../../firebase/config';
+import { userService } from '../../api/userService';
 import { Trash2, User, Mail, Calendar, Search, Filter, ArrowUpDown } from 'lucide-react';
 
 const UsersManager = () => {
@@ -17,12 +16,8 @@ const UsersManager = () => {
     const fetchUsers = async () => {
         setLoading(true);
         try {
-            const querySnapshot = await getDocs(collection(db, 'users'));
-            const usersData = querySnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setUsers(usersData);
+            const data = await userService.getAll();
+            setUsers(data);
         } catch (error) {
             console.error('Error fetching users:', error);
         } finally {
@@ -33,7 +28,7 @@ const UsersManager = () => {
     const handleDeleteUser = async (id) => {
         if (window.confirm('Are you sure you want to delete this user?')) {
             try {
-                await deleteDoc(doc(db, 'users', id));
+                await userService.delete(id);
                 setUsers(users.filter(user => user.id !== id));
             } catch (error) {
                 console.error('Error deleting user:', error);

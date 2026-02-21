@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
-import { db } from '../../firebase/config';
+import { workflowService } from '../../api/workflowService';
+import { toolService } from '../../api/toolService';
 import { Plus, Edit, Trash2, X, Save, PlusCircle, MinusCircle } from 'lucide-react';
+import SearchableSelect from './SearchableSelect';
 
 const WorkflowsManager = () => {
   const [workflows, setWorkflows] = useState([]);
@@ -25,9 +26,8 @@ const WorkflowsManager = () => {
 
   const fetchWorkflows = async () => {
     try {
-      const q = query(collection(db, 'workflows'), orderBy('name'));
-      const snapshot = await getDocs(q);
-      setWorkflows(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const data = await workflowService.getAll();
+      setWorkflows(data);
     } catch (error) {
       console.error('Error fetching workflows:', error);
     } finally {
@@ -37,8 +37,8 @@ const WorkflowsManager = () => {
 
   const fetchTools = async () => {
     try {
-      const snapshot = await getDocs(collection(db, 'tools'));
-      setTools(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const data = await toolService.getAll({ limit: 0 });
+      setTools(data);
     } catch (error) {
       console.error('Error fetching tools:', error);
     }
@@ -53,9 +53,9 @@ const WorkflowsManager = () => {
       };
 
       if (editingWorkflow) {
-        await updateDoc(doc(db, 'workflows', editingWorkflow.id), workflowData);
+        await workflowService.update(editingWorkflow.id, workflowData);
       } else {
-        await addDoc(collection(db, 'workflows'), workflowData);
+        await workflowService.create(workflowData);
       }
 
       resetForm();
@@ -78,7 +78,7 @@ const WorkflowsManager = () => {
   const handleDelete = async (id) => {
     if (confirm('Are you sure you want to delete this workflow?')) {
       try {
-        await deleteDoc(doc(db, 'workflows', id));
+        await workflowService.delete(id);
         fetchWorkflows();
       } catch (error) {
         console.error('Error deleting workflow:', error);
@@ -239,16 +239,15 @@ const WorkflowsManager = () => {
                         </div>
                         <div>
                           <label className="block text-xs font-medium mb-1">Tool</label>
-                          <select
+                          <SearchableSelect
+                            options={[
+                              { value: '', label: 'Select Tool' },
+                              ...tools.map(tool => ({ value: tool.id, label: tool.name }))
+                            ]}
                             value={step.toolId}
-                            onChange={(e) => updateJourneyStep(index, 'toolId', e.target.value)}
-                            className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary text-sm"
-                          >
-                            <option value="">Select Tool</option>
-                            {tools.map(tool => (
-                              <option key={tool.id} value={tool.id}>{tool.name}</option>
-                            ))}
-                          </select>
+                            onChange={(value) => updateJourneyStep(index, 'toolId', value)}
+                            placeholder="Select Tool"
+                          />
                         </div>
                         <div>
                           <label className="block text-xs font-medium mb-1">Prompt</label>

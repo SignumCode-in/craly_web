@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore';
-import { db } from '../../firebase/config';
+import { postService } from '../../api/postService';
+import { toolService } from '../../api/toolService';
+import { categoryService } from '../../api/categoryService';
 import { Plus, Edit, Trash2, X, Save } from 'lucide-react';
 import SimpleTextEditor from './SimpleTextEditor';
 import SearchableSelect from './SearchableSelect';
@@ -33,9 +34,8 @@ const PostsManager = () => {
 
   const fetchPosts = async () => {
     try {
-      const q = query(collection(db, 'posts'), orderBy('timestamp', 'desc'));
-      const snapshot = await getDocs(q);
-      setPosts(snapshot.docs.map(doc => ({ postId: doc.id, ...doc.data() })));
+      const data = await postService.getAll();
+      setPosts(data);
     } catch (error) {
       console.error('Error fetching posts:', error);
     } finally {
@@ -45,8 +45,8 @@ const PostsManager = () => {
 
   const fetchTools = async () => {
     try {
-      const snapshot = await getDocs(collection(db, 'tools'));
-      setTools(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const data = await toolService.getAll({ limit: 0 });
+      setTools(data);
     } catch (error) {
       console.error('Error fetching tools:', error);
     }
@@ -54,8 +54,8 @@ const PostsManager = () => {
 
   const fetchCategories = async () => {
     try {
-      const snapshot = await getDocs(collection(db, 'categories'));
-      setCategories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const data = await categoryService.getAll();
+      setCategories(data);
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
@@ -72,9 +72,9 @@ const PostsManager = () => {
       };
 
       if (editingPost) {
-        await updateDoc(doc(db, 'posts', editingPost.postId), postData);
+        await postService.update(editingPost.postId, postData);
       } else {
-        await addDoc(collection(db, 'posts'), postData);
+        await postService.create(postData);
       }
 
       resetForm();
@@ -98,7 +98,7 @@ const PostsManager = () => {
   const handleDelete = async (postId) => {
     if (confirm('Are you sure you want to delete this post?')) {
       try {
-        await deleteDoc(doc(db, 'posts', postId));
+        await postService.delete(postId);
         fetchPosts();
       } catch (error) {
         console.error('Error deleting post:', error);

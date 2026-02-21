@@ -1,4 +1,4 @@
-import { LayoutDashboard, FolderTree, Tag, Workflow, FileText, LogOut, Shield, Globe, Upload, Image } from 'lucide-react';
+import { LayoutDashboard, FolderTree, Tag, Workflow, FileText, LogOut, Shield, Globe, Upload, Image, Users, Gift } from 'lucide-react';
 
 const Sidebar = ({ activeTab, setActiveTab, onLogout }) => {
   const menuItems = [
@@ -8,6 +8,8 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout }) => {
     { id: 'workflows', label: 'Workflows', icon: Workflow },
     { id: 'posts', label: 'Posts', icon: FileText },
     { id: 'banners', label: 'Banners', icon: Image },
+    { id: 'partners', label: 'Partners', icon: Users },
+    { id: 'promotions', label: 'Promotions', icon: Gift },
     { id: 'privacy', label: 'Privacy Policy', icon: Shield },
     { id: 'landing', label: 'Landing Page', icon: Globe },
     { id: 'json-upload', label: 'JSON Upload', icon: Upload },
@@ -30,8 +32,8 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout }) => {
               key={item.id}
               onClick={() => setActiveTab(item.id)}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${activeTab === item.id
-                  ? 'bg-primary/20 text-primary border border-primary/30'
-                  : 'text-soft-grey hover:bg-white/5 hover:text-white'
+                ? 'bg-primary/20 text-primary border border-primary/30'
+                : 'text-soft-grey hover:bg-white/5 hover:text-white'
                 }`}
             >
               <Icon className="w-5 h-5" />

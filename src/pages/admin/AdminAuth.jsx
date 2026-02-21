@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '../../firebase/config';
+import { authService } from '../../api/authService';
 import { LogIn, Mail, Lock } from 'lucide-react';
 
 const AdminAuth = () => {
@@ -17,10 +16,10 @@ const AdminAuth = () => {
     setLoading(true);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await authService.adminLogin(email, password);
       navigate('/admin');
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'Invalid credentials');
     } finally {
       setLoading(false);
     }

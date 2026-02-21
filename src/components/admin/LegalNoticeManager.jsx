@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../../firebase/config';
+import { settingsService } from '../../api/settingsService';
 import { Save } from 'lucide-react';
 import SimpleTextEditor from './SimpleTextEditor';
 
-const PrivacyPolicyManager = () => {
+const LegalNoticeManager = () => {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -15,10 +14,9 @@ const PrivacyPolicyManager = () => {
 
   const fetchPrivacyPolicy = async () => {
     try {
-      const docRef = doc(db, 'settings', 'privacyPolicy');
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        setContent(docSnap.data().content || '');
+      const data = await settingsService.get('privacyPolicy');
+      if (data) {
+        setContent(data.content || '');
       }
     } catch (error) {
       console.error('Error fetching privacy policy:', error);
@@ -30,10 +28,7 @@ const PrivacyPolicyManager = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await setDoc(doc(db, 'settings', 'privacyPolicy'), {
-        content,
-        updatedAt: new Date().toISOString()
-      });
+      await settingsService.update('privacyPolicy', { content });
       alert('Privacy Policy saved successfully!');
     } catch (error) {
       console.error('Error saving privacy policy:', error);
@@ -73,5 +68,5 @@ const PrivacyPolicyManager = () => {
   );
 };
 
-export default PrivacyPolicyManager;
+export default LegalNoticeManager;
 

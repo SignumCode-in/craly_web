@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../../firebase/config';
+import { settingsService } from '../../api/settingsService';
 import { Save } from 'lucide-react';
 
 const LandingPageManager = () => {
@@ -23,10 +22,9 @@ const LandingPageManager = () => {
 
   const fetchLandingData = async () => {
     try {
-      const docRef = doc(db, 'settings', 'landingPage');
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        setFormData({ ...formData, ...docSnap.data() });
+      const data = await settingsService.get('landingPage');
+      if (data) {
+        setFormData({ ...formData, ...data });
       }
     } catch (error) {
       console.error('Error fetching landing page data:', error);
@@ -38,10 +36,7 @@ const LandingPageManager = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await setDoc(doc(db, 'settings', 'landingPage'), {
-        ...formData,
-        updatedAt: new Date().toISOString()
-      });
+      await settingsService.update('landingPage', formData);
       alert('Landing page data saved successfully!');
     } catch (error) {
       console.error('Error saving landing page data:', error);

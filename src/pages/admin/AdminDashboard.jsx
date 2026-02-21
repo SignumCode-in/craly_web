@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
-import { auth } from '../../firebase/config';
+import { authService } from '../../api/authService';
 import Sidebar from '../../components/admin/Sidebar';
 import DashboardHome from '../../components/admin/DashboardHome';
 import ToolsManager from '../../components/admin/ToolsManager';
@@ -9,10 +8,12 @@ import CategoriesManager from '../../components/admin/CategoriesManager';
 import WorkflowsManager from '../../components/admin/WorkflowsManager';
 import PostsManager from '../../components/admin/PostsManager';
 import BannerManager from '../../components/admin/BannerManager';
-import PrivacyPolicyManager from '../../components/admin/PrivacyPolicyManager';
+import LegalNoticeManager from '../../components/admin/LegalNoticeManager';
 import LandingPageManager from '../../components/admin/LandingPageManager';
 import JsonUploadManager from '../../components/admin/JsonUploadManager';
 import UsersManager from '../../components/admin/UsersManager';
+import PartnersManager from '../../components/admin/PartnersManager';
+import PromotionsManager from '../../components/admin/PromotionsManager';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -20,7 +21,7 @@ const AdminDashboard = () => {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      authService.logout();
       navigate('/admin/auth');
     } catch (error) {
       console.error('Error signing out:', error);
@@ -41,8 +42,12 @@ const AdminDashboard = () => {
         return <PostsManager />;
       case 'banners':
         return <BannerManager />;
+      case 'partners':
+        return <PartnersManager />;
+      case 'promotions':
+        return <PromotionsManager />;
       case 'privacy':
-        return <PrivacyPolicyManager />;
+        return <LegalNoticeManager />;
       case 'landing':
         return <LandingPageManager />;
       case 'json-upload':

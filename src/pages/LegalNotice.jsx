@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase/config';
+import { settingsService } from '../api/settingsService';
 import { ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Logo from '../components/Logo';
 
-const PrivacyPolicy = () => {
+const LegalNotice = () => {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -15,10 +14,9 @@ const PrivacyPolicy = () => {
 
   const fetchPrivacyPolicy = async () => {
     try {
-      const docRef = doc(db, 'settings', 'privacyPolicy');
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        setContent(docSnap.data().content || '');
+      const data = await settingsService.get('privacyPolicy');
+      if (data && data.content) {
+        setContent(data.content);
       } else {
         setContent('<p>Privacy policy content will be available soon.</p>');
       }
@@ -183,7 +181,7 @@ const PrivacyPolicy = () => {
   );
 };
 
-export default PrivacyPolicy;
+export default LegalNotice;
 
 
 
