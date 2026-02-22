@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { categoryService } from '../../api/categoryService';
 import { toolService } from '../../api/toolService';
 import { Plus, Edit, Trash2, X, Save, Search, Power, ChevronDown } from 'lucide-react';
+import MultiTagInput from './MultiTagInput';
+import { tagService } from '../../api/tagService';
 
 const CategoriesManager = () => {
   const [categories, setCategories] = useState([]);
@@ -21,7 +23,8 @@ const CategoriesManager = () => {
     toolCount: 0,
     description: '',
     enabled: true,
-    tools: []
+    tools: [],
+    tags: []
   });
 
   useEffect(() => {
@@ -92,7 +95,8 @@ const CategoriesManager = () => {
         toolCount: parseInt(formData.toolCount) || 0,
         description: formData.description,
         enabled: formData.enabled,
-        tools: formData.tools || []
+        tools: formData.tools || [],
+        tags: formData.tags || []
       };
 
       if (editingCategory) {
@@ -123,7 +127,8 @@ const CategoriesManager = () => {
       toolCount: category.toolCount || 0,
       description: category.description || '',
       enabled: category.enabled !== undefined ? category.enabled : true,
-      tools: category.tools ? category.tools.map(t => typeof t === 'object' ? (t.id || t._id) : t) : []
+      tools: category.tools ? category.tools.map(t => typeof t === 'object' ? (t.id || t._id) : t) : [],
+      tags: category.tags || []
     });
     setShowForm(true);
   };
@@ -160,7 +165,8 @@ const CategoriesManager = () => {
       toolCount: 0,
       description: '',
       enabled: true,
-      tools: []
+      tools: [],
+      tags: []
     });
     setEditingCategory(null);
     setShowForm(false);
@@ -360,6 +366,23 @@ const CategoriesManager = () => {
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* Tags */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Tags (Type # to search)</label>
+                <MultiTagInput
+                  value={formData.tags}
+                  onChange={(val) => setFormData({ ...formData, tags: val })}
+                  fetchSuggestions={async (q) => {
+                    const tags = await tagService.getAll(q);
+                    return tags.map(t => ({ label: t.name, value: t.name }));
+                  }}
+                  onCreateNew={async (newTagName) => {
+                    return await tagService.create(newTagName);
+                  }}
+                  placeholder="Add tags..."
+                />
               </div>
 
               <div className="flex items-center gap-2">

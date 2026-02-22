@@ -4,12 +4,18 @@ import { partnerService } from '../../api/partnerService';
 import { toolService } from '../../api/toolService';
 import { Plus, Edit, Trash2, X, Save, Search, Power } from 'lucide-react';
 import SearchableSelect from './SearchableSelect';
+import MultiTagInput from './MultiTagInput';
+import MultiSelectDropdown from './MultiSelectDropdown';
+import { tagService } from '../../api/tagService';
+import { categoryService } from '../../api/categoryService';
+import { COUNTRIES, formatCategoriesForSelect } from '../../utils/constants';
 
 const PromotionsManager = () => {
     const [promotions, setPromotions] = useState([]);
     const [filteredPromotions, setFilteredPromotions] = useState([]);
     const [partners, setPartners] = useState([]);
     const [tools, setTools] = useState([]);
+    const [categories, setCategories] = useState([]);
 
     const [loading, setLoading] = useState(true);
     const [showForm, setShowForm] = useState(false);
@@ -23,7 +29,17 @@ const PromotionsManager = () => {
         startDate: '',
         endDate: '',
         priority: 0,
-        isActive: true
+        isActive: true,
+        targetCategories: [],
+        targetTags: [],
+        targetCountries: [],
+        impressions: 0,
+        clicks: 0,
+        amountPaid: 0,
+        currency: 'INR',
+        bannerImageUrl: '',
+        customHeadline: '',
+        showSponsoredLabel: true
     });
 
     useEffect(() => {
@@ -32,15 +48,17 @@ const PromotionsManager = () => {
 
     const fetchData = async () => {
         try {
-            const [promoRes, partnerRes, toolRes] = await Promise.all([
+            const [promoRes, partnerRes, toolRes, catRes] = await Promise.all([
                 promotionService.getAll(),
                 partnerService.getAll(),
-                toolService.getAll({ limit: 0 })
+                toolService.getAll({ limit: 0 }),
+                categoryService.getAll()
             ]);
             setPromotions(promoRes || []);
             setFilteredPromotions(promoRes || []);
             setPartners(partnerRes || []);
             setTools(toolRes || []);
+            setCategories(catRes || []);
         } catch (error) {
             console.error('Error fetching data:', error);
         } finally {
@@ -63,10 +81,14 @@ const PromotionsManager = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
+            const payload = {
+                ...formData,
+            };
+
             if (editingPromotion) {
-                await promotionService.update(editingPromotion._id, formData);
+                await promotionService.update(editingPromotion._id, payload);
             } else {
-                await promotionService.create(formData);
+                await promotionService.create(payload);
             }
 
             resetForm();
@@ -86,7 +108,17 @@ const PromotionsManager = () => {
             startDate: promotion.startDate ? new Date(promotion.startDate).toISOString().split('T')[0] : '',
             endDate: promotion.endDate ? new Date(promotion.endDate).toISOString().split('T')[0] : '',
             priority: promotion.priority || 0,
-            isActive: promotion.isActive !== undefined ? promotion.isActive : true
+            isActive: promotion.isActive !== undefined ? promotion.isActive : true,
+            targetCategories: promotion.targetCategories || [],
+            targetTags: promotion.targetTags || [],
+            targetCountries: promotion.targetCountries || [],
+            impressions: promotion.impressions || 0,
+            clicks: promotion.clicks || 0,
+            amountPaid: promotion.amountPaid || 0,
+            currency: promotion.currency || 'INR',
+            bannerImageUrl: promotion.bannerImageUrl || '',
+            customHeadline: promotion.customHeadline || '',
+            showSponsoredLabel: promotion.showSponsoredLabel !== undefined ? promotion.showSponsoredLabel : true
         });
         setShowForm(true);
     };
@@ -121,7 +153,17 @@ const PromotionsManager = () => {
             startDate: '',
             endDate: '',
             priority: 0,
-            isActive: true
+            isActive: true,
+            targetCategories: [],
+            targetTags: [],
+            targetCountries: [],
+            impressions: 0,
+            clicks: 0,
+            amountPaid: 0,
+            currency: 'INR',
+            bannerImageUrl: '',
+            customHeadline: '',
+            showSponsoredLabel: true
         });
         setEditingPromotion(null);
         setShowForm(false);
@@ -253,7 +295,124 @@ const PromotionsManager = () => {
                                 <label htmlFor="isActive" className="text-sm font-medium">Active Campaign</label>
                             </div>
 
-                            <div className="flex gap-4 pt-4">
+                            {/* New Fields Sections */}
+                            <div className="border-t border-white/10 pt-4 mt-4">
+                                <h3 className="text-lg font-semibold mb-4 text-primary">Targeting</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Categories</label>
+                                        <MultiSelectDropdown
+                                            options={formatCategoriesForSelect(categories)}
+                                            value={formData.targetCategories}
+                                            onChange={(val) => setFormData({ ...formData, targetCategories: val })}
+                                            placeholder="Select categories"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Tags (Type # to search)</label>
+                                        <MultiTagInput
+                                            value={formData.targetTags}
+                                            onChange={(val) => setFormData({ ...formData, targetTags: val })}
+                                            fetchSuggestions={async (q) => {
+                                                const tags = await tagService.getAll(q);
+                                                return tags.map(t => ({ label: t.name, value: t.name }));
+                                            }}
+                                            onCreateNew={async (newTagName) => {
+                                                return await tagService.create(newTagName);
+                                            }}
+                                            placeholder="Add tags..."
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Countries</label>
+                                        <MultiSelectDropdown
+                                            options={COUNTRIES}
+                                            value={formData.targetCountries}
+                                            onChange={(val) => setFormData({ ...formData, targetCountries: val })}
+                                            placeholder="Select countries"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="border-t border-white/10 pt-4 mt-4">
+                                <h3 className="text-lg font-semibold mb-4 text-primary">Analytics & Payment</h3>
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Impressions</label>
+                                        <input
+                                            type="number"
+                                            value={formData.impressions}
+                                            onChange={(e) => setFormData({ ...formData, impressions: e.target.value })}
+                                            className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary text-white"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Clicks</label>
+                                        <input
+                                            type="number"
+                                            value={formData.clicks}
+                                            onChange={(e) => setFormData({ ...formData, clicks: e.target.value })}
+                                            className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary text-white"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Amount Paid</label>
+                                        <input
+                                            type="number"
+                                            value={formData.amountPaid}
+                                            onChange={(e) => setFormData({ ...formData, amountPaid: e.target.value })}
+                                            className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary text-white"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Currency</label>
+                                        <input
+                                            type="text"
+                                            value={formData.currency}
+                                            onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                                            className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary text-white"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="border-t border-white/10 pt-4 mt-4">
+                                <h3 className="text-lg font-semibold mb-4 text-primary">Visuals</h3>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Banner Image URL</label>
+                                        <input
+                                            type="url"
+                                            value={formData.bannerImageUrl}
+                                            onChange={(e) => setFormData({ ...formData, bannerImageUrl: e.target.value })}
+                                            placeholder="https://..."
+                                            className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary text-white"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium mb-1">Custom Headline</label>
+                                        <input
+                                            type="text"
+                                            value={formData.customHeadline}
+                                            onChange={(e) => setFormData({ ...formData, customHeadline: e.target.value })}
+                                            className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary text-white"
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            id="showSponsoredLabel"
+                                            checked={formData.showSponsoredLabel}
+                                            onChange={(e) => setFormData({ ...formData, showSponsoredLabel: e.target.checked })}
+                                            className="w-4 h-4"
+                                        />
+                                        <label htmlFor="showSponsoredLabel" className="text-sm font-medium">Show "Sponsored" Label</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4 pt-4 mt-6 border-t border-white/10">
                                 <button
                                     type="submit"
                                     className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors"

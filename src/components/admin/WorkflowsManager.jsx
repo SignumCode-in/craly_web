@@ -3,6 +3,8 @@ import { workflowService } from '../../api/workflowService';
 import { toolService } from '../../api/toolService';
 import { Plus, Edit, Trash2, X, Save, PlusCircle, MinusCircle } from 'lucide-react';
 import SearchableSelect from './SearchableSelect';
+import MultiTagInput from './MultiTagInput';
+import { tagService } from '../../api/tagService';
 
 const WorkflowsManager = () => {
   const [workflows, setWorkflows] = useState([]);
@@ -16,6 +18,7 @@ const WorkflowsManager = () => {
     iconName: '',
     duration: '',
     steps: 0,
+    tags: [],
     journey: []
   });
 
@@ -70,6 +73,7 @@ const WorkflowsManager = () => {
     setEditingWorkflow(workflow);
     setFormData({
       ...workflow,
+      tags: workflow.tags || [],
       journey: workflow.journey || []
     });
     setShowForm(true);
@@ -114,6 +118,7 @@ const WorkflowsManager = () => {
       iconName: '',
       duration: '',
       steps: 0,
+      tags: [],
       journey: []
     });
     setEditingWorkflow(null);
@@ -180,15 +185,32 @@ const WorkflowsManager = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Duration</label>
-                <input
-                  type="text"
-                  value={formData.duration}
-                  onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary"
-                  placeholder="e.g., 30 minutes, 1 hour"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Duration</label>
+                  <input
+                    type="text"
+                    value={formData.duration}
+                    onChange={(e) => setFormData({ ...formData, duration: e.target.value })}
+                    className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary"
+                    placeholder="e.g., 30 minutes, 1 hour"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Tags (Type # to search)</label>
+                  <MultiTagInput
+                    value={formData.tags}
+                    onChange={(val) => setFormData({ ...formData, tags: val })}
+                    fetchSuggestions={async (q) => {
+                      const tags = await tagService.getAll(q);
+                      return tags.map(t => ({ label: t.name, value: t.name }));
+                    }}
+                    onCreateNew={async (newTagName) => {
+                      return await tagService.create(newTagName);
+                    }}
+                    placeholder="Add tags..."
+                  />
+                </div>
               </div>
 
               <div className="border-t border-white/10 pt-4">

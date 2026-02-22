@@ -3,6 +3,8 @@ import { toolService } from '../../api/toolService';
 import { categoryService } from '../../api/categoryService';
 import { Plus, Edit, Trash2, X, Save, Search, Power, GripVertical, TrendingUp, Loader, LayoutGrid, List, Heart, ExternalLink } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import MultiTagInput from './MultiTagInput';
+import { tagService } from '../../api/tagService';
 
 const ToolsManager = () => {
   const [tools, setTools] = useState([]);
@@ -25,7 +27,7 @@ const ToolsManager = () => {
     url: '',
     logoUrl: '',
     pricing: 'Freemium',
-    tags: '',
+    tags: [],
     isTrending: false,
     isPartnerTool: false,
     enabled: true,
@@ -112,7 +114,6 @@ const ToolsManager = () => {
     try {
       const toolData = {
         ...formData,
-        tags: formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
         likesCount: parseInt(formData.likesCount) || 0
       };
 
@@ -138,7 +139,7 @@ const ToolsManager = () => {
       category: getCategoryId(tool.category) || tool.category,
       enabled: tool.enabled !== undefined ? tool.enabled : true,
       isPartnerTool: tool.isPartnerTool !== undefined ? tool.isPartnerTool : false,
-      tags: Array.isArray(tool.tags) ? tool.tags.join(', ') : tool.tags || ''
+      tags: Array.isArray(tool.tags) ? tool.tags : (tool.tags ? tool.tags.split(',').map(t => t.trim()) : [])
     });
     setShowForm(true);
   };
@@ -206,7 +207,7 @@ const ToolsManager = () => {
       url: '',
       logoUrl: '',
       pricing: 'Freemium',
-      tags: '',
+      tags: [],
       isTrending: false,
       isPartnerTool: false,
       enabled: true,
@@ -607,7 +608,7 @@ const ToolsManager = () => {
                 <div>
                   <label className="block text-sm font-medium mb-2">Category *</label>
                   <select
-                    value={formData.category}
+                    value={formData.category || ''}
                     onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                     className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary"
                     required
@@ -688,13 +689,18 @@ const ToolsManager = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Tags (comma-separated)</label>
-                <input
-                  type="text"
+                <label className="block text-sm font-medium mb-2">Tags (Type # to search)</label>
+                <MultiTagInput
                   value={formData.tags}
-                  onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary"
-                  placeholder="AI, Productivity, Writing"
+                  onChange={(val) => setFormData({ ...formData, tags: val })}
+                  fetchSuggestions={async (q) => {
+                    const tags = await tagService.getAll(q);
+                    return tags.map(t => ({ label: t.name, value: t.name }));
+                  }}
+                  onCreateNew={async (newTagName) => {
+                    return await tagService.create(newTagName);
+                  }}
+                  placeholder="Add tags..."
                 />
               </div>
 

@@ -5,6 +5,8 @@ import { categoryService } from '../../api/categoryService';
 import { Plus, Edit, Trash2, X, Save } from 'lucide-react';
 import SimpleTextEditor from './SimpleTextEditor';
 import SearchableSelect from './SearchableSelect';
+import MultiTagInput from './MultiTagInput';
+import { tagService } from '../../api/tagService';
 
 const PostsManager = () => {
   const [posts, setPosts] = useState([]);
@@ -21,7 +23,7 @@ const PostsManager = () => {
       categoryId: ''
     },
     imageUrl: '',
-    tags: '',
+    tags: [],
     likes: 0,
     timestamp: Date.now()
   });
@@ -66,7 +68,6 @@ const PostsManager = () => {
     try {
       const postData = {
         ...formData,
-        tags: formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag),
         likes: parseInt(formData.likes) || 0,
         timestamp: editingPost ? formData.timestamp : Date.now()
       };
@@ -89,7 +90,7 @@ const PostsManager = () => {
     setEditingPost(post);
     setFormData({
       ...post,
-      tags: Array.isArray(post.tags) ? post.tags.join(', ') : post.tags || '',
+      tags: Array.isArray(post.tags) ? post.tags : (post.tags ? post.tags.split(',').map(t => t.trim()) : []),
       tool: post.tool || { toolId: '', categoryId: '' }
     });
     setShowForm(true);
@@ -116,7 +117,7 @@ const PostsManager = () => {
         categoryId: ''
       },
       imageUrl: '',
-      tags: '',
+      tags: [],
       likes: 0,
       timestamp: Date.now()
     });
@@ -228,13 +229,18 @@ const PostsManager = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Tags (comma-separated)</label>
-                  <input
-                    type="text"
+                  <label className="block text-sm font-medium mb-2">Tags (Type # to search)</label>
+                  <MultiTagInput
                     value={formData.tags}
-                    onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
-                    className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary"
-                    placeholder="AI, Productivity, Writing"
+                    onChange={(val) => setFormData({ ...formData, tags: val })}
+                    fetchSuggestions={async (q) => {
+                      const tags = await tagService.getAll(q);
+                      return tags.map(t => ({ label: t.name, value: t.name }));
+                    }}
+                    onCreateNew={async (newTagName) => {
+                      return await tagService.create(newTagName);
+                    }}
+                    placeholder="Add tags..."
                   />
                 </div>
                 <div>

@@ -14,6 +14,7 @@ import JsonUploadManager from '../../components/admin/JsonUploadManager';
 import UsersManager from '../../components/admin/UsersManager';
 import PartnersManager from '../../components/admin/PartnersManager';
 import PromotionsManager from '../../components/admin/PromotionsManager';
+import TagsManager from '../../components/admin/TagsManager';
 
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -54,6 +55,8 @@ const AdminDashboard = () => {
         return <JsonUploadManager />;
       case 'users':
         return <UsersManager />;
+      case 'tags':
+        return <TagsManager />;
       default:
         return <DashboardHome />;
     }
