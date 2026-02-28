@@ -37,7 +37,10 @@ const PromotionsManager = () => {
         clicks: 0,
         amountPaid: 0,
         currency: 'INR',
-        bannerImageUrl: '',
+        media: {
+            type: 'image',
+            url: ''
+        },
         customHeadline: '',
         showSponsoredLabel: true
     });
@@ -116,7 +119,10 @@ const PromotionsManager = () => {
             clicks: promotion.clicks || 0,
             amountPaid: promotion.amountPaid || 0,
             currency: promotion.currency || 'INR',
-            bannerImageUrl: promotion.bannerImageUrl || '',
+            media: {
+                type: promotion.media?.type || 'image',
+                url: promotion.media?.url || ''
+            },
             customHeadline: promotion.customHeadline || '',
             showSponsoredLabel: promotion.showSponsoredLabel !== undefined ? promotion.showSponsoredLabel : true
         });
@@ -161,7 +167,10 @@ const PromotionsManager = () => {
             clicks: 0,
             amountPaid: 0,
             currency: 'INR',
-            bannerImageUrl: '',
+            media: {
+                type: 'image',
+                url: ''
+            },
             customHeadline: '',
             showSponsoredLabel: true
         });
@@ -380,15 +389,28 @@ const PromotionsManager = () => {
                             <div className="border-t border-white/10 pt-4 mt-4">
                                 <h3 className="text-lg font-semibold mb-4 text-primary">Visuals</h3>
                                 <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium mb-1">Banner Image URL</label>
-                                        <input
-                                            type="url"
-                                            value={formData.bannerImageUrl}
-                                            onChange={(e) => setFormData({ ...formData, bannerImageUrl: e.target.value })}
-                                            placeholder="https://..."
-                                            className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary text-white"
-                                        />
+                                    <div className="flex gap-4">
+                                        <div className="w-1/3">
+                                            <label className="block text-sm font-medium mb-1">Media Type</label>
+                                            <select
+                                                value={formData.media.type}
+                                                onChange={(e) => setFormData({ ...formData, media: { ...formData.media, type: e.target.value } })}
+                                                className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary text-white"
+                                            >
+                                                <option value="image">Image</option>
+                                                <option value="video">Video</option>
+                                            </select>
+                                        </div>
+                                        <div className="flex-1">
+                                            <label className="block text-sm font-medium mb-1">Media URL</label>
+                                            <input
+                                                type="url"
+                                                value={formData.media.url}
+                                                onChange={(e) => setFormData({ ...formData, media: { ...formData.media, url: e.target.value } })}
+                                                placeholder="https://..."
+                                                className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary text-white"
+                                            />
+                                        </div>
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium mb-1">Custom Headline</label>

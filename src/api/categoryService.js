@@ -1,9 +1,10 @@
 import client from './client';
 
 export const categoryService = {
-  getAll: async () => {
-    const data = await client.get('/categories');
-    return data.map(item => ({ ...item, id: item._id }));
+  getAll: async (params = {}) => {
+    const query = new URLSearchParams(params).toString();
+    const data = await client.get(`/categories?${query}`);
+    return data;
   },
   getById: async (id) => {
     const item = await client.get(`/categories/${id}`);

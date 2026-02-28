@@ -13,8 +13,14 @@ export const COUNTRIES = [
   // More can be added as deemed fit
 ];
 
-export const formatCategoriesForSelect = (categories) => {
-  if (!categories) return [];
+export const formatCategoriesForSelect = (categoriesData) => {
+  if (!categoriesData) return [];
+  
+  // if it's the paginated response format we just added
+  const categories = categoriesData.data?.categories || categoriesData.categories || categoriesData;
+  
+  if (!Array.isArray(categories)) return [];
+
   return categories.map(cat => ({
     value: cat.name,
     label: cat.name

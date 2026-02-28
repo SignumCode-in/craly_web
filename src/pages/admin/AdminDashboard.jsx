@@ -16,6 +16,8 @@ import PartnersManager from '../../components/admin/PartnersManager';
 import PromotionsManager from '../../components/admin/PromotionsManager';
 import TagsManager from '../../components/admin/TagsManager';
 
+import GlobalSearch from '../../components/admin/GlobalSearch';
+
 const AdminDashboard = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const navigate = useNavigate();
@@ -65,8 +67,13 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen bg-dark flex">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} onLogout={handleLogout} />
-      <main className="flex-1 p-8 overflow-auto">
-        {renderContent()}
+      <main className="flex-[1] p-8 overflow-auto flex flex-col items-center">
+        <div className="w-full justify-start items-start">
+          <GlobalSearch onNavigate={setActiveTab} />
+        </div>
+        <div className="w-full">
+          {renderContent()}
+        </div>
       </main>
     </div>
   );
