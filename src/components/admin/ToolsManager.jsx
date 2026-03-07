@@ -19,6 +19,10 @@ const ToolsManager = () => {
   const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
   const [trendingTools, setTrendingTools] = useState([]);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const limit = 20;
+
   const [formData, setFormData] = useState({
     name: '',
     category: '',
@@ -35,18 +39,42 @@ const ToolsManager = () => {
   });
 
   useEffect(() => {
-    fetchTools();
+    // Reset to page 1 whenever search or category changes
+    setCurrentPage(1);
+  }, [searchTerm, selectedCategory]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchTools();
+    }, 500); // Debounce search
+    return () => clearTimeout(timer);
+  }, [searchTerm, selectedCategory, currentPage]);
+
+  useEffect(() => {
     fetchCategories();
   }, []);
 
   const fetchTools = async () => {
     try {
-      const data = await toolService.getAll();
-      setTools(data);
-      setFilteredTools(data);
+      setLoading(true);
+      const data = await toolService.getAll({
+        page: currentPage,
+        limit,
+        search: searchTerm,
+        category: selectedCategory
+      });
+
+      const items = data.tools || data;
+      setTools(items);
+      setFilteredTools(items);
+
+      if (data.pagination) {
+        setTotalPages(data.pagination.totalPages || 1);
+        setCurrentPage(data.pagination.currentPage || 1);
+      }
 
       // Update trending tools for reordering
-      const trending = data
+      const trending = items
         .filter(t => t.isTrending)
         .sort((a, b) => (a.trendingOrder || 0) - (b.trendingOrder || 0));
       setTrendingTools(trending);
@@ -82,30 +110,17 @@ const ToolsManager = () => {
     }
   };
 
-  useEffect(() => {
-    let filtered = tools;
-
-    if (selectedCategory) {
-      filtered = filtered.filter(tool => tool.category === selectedCategory);
-    }
-
-    if (searchTerm) {
-      filtered = filtered.filter(tool =>
-        (tool.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        getCategoryName(tool.category)?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        tool.shortDescription?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-
-    setFilteredTools(filtered);
-  }, [searchTerm, selectedCategory, tools, categories]);
+  // We removed the local filtering useEffect. Data is now filtered at the API level!
 
   const fetchCategories = async () => {
     try {
-      const data = await categoryService.getAll();
-      setCategories(data);
+      const response = await categoryService.getAll({ limit: 0 });
+      const cats = response.categories || (response.data && response.data.categories) || (Array.isArray(response) ? response : []);
+
+      setCategories(cats.map(item => ({ ...item, id: item._id || item.id })));
     } catch (error) {
       console.error('Error fetching categories:', error);
+      setCategories([]);
     }
   };
 
@@ -499,6 +514,31 @@ const ToolsManager = () => {
         </div>
       )}
 
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between mt-8 p-4 bg-white/5 border border-white/10 rounded-xl">
+          <div className="text-sm text-soft-grey">
+            Showing Page <span className="text-white font-medium">{currentPage}</span> of <span className="text-white font-medium">{totalPages}</span>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Previous
+            </button>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
       {showTrendingOrder && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-dark border border-white/10 rounded-xl p-6 max-w-lg w-full max-h-[90vh] flex flex-col">
@@ -581,183 +621,186 @@ const ToolsManager = () => {
             </div>
           </div>
         </div>
-      )}
+      )
+      }
 
-      {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-dark border border-white/10 rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold">{editingTool ? 'Edit Tool' : 'Add New Tool'}</h2>
-              <button onClick={resetForm} className="text-soft-grey hover:text-white">
-                <X className="w-6 h-6" />
-              </button>
-            </div>
+      {
+        showForm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-dark border border-white/10 rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold">{editingTool ? 'Edit Tool' : 'Add New Tool'}</h2>
+                <button onClick={resetForm} className="text-soft-grey hover:text-white">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Name *</label>
+                    <input
+                      type="text"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Category *</label>
+                    <select
+                      value={formData.category || ''}
+                      onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                      className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary"
+                      required
+                    >
+                      <option value="">Select Category</option>
+                      {categories.map(cat => (
+                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
                 <div>
-                  <label className="block text-sm font-medium mb-2">Name *</label>
+                  <label className="block text-sm font-medium mb-2">Short Description *</label>
                   <input
                     type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    value={formData.shortDescription}
+                    onChange={(e) => setFormData({ ...formData, shortDescription: e.target.value })}
                     className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary"
                     required
                   />
                 </div>
+
                 <div>
-                  <label className="block text-sm font-medium mb-2">Category *</label>
-                  <select
-                    value={formData.category || ''}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  <label className="block text-sm font-medium mb-2">Long Description</label>
+                  <textarea
+                    value={formData.longDescription}
+                    onChange={(e) => setFormData({ ...formData, longDescription: e.target.value })}
                     className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary"
-                    required
+                    rows="4"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">URL *</label>
+                    <input
+                      type="url"
+                      value={formData.url}
+                      onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                      className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Logo URL</label>
+                    <input
+                      type="url"
+                      value={formData.logoUrl}
+                      onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
+                      className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Pricing</label>
+                    <select
+                      value={formData.pricing}
+                      onChange={(e) => setFormData({ ...formData, pricing: e.target.value })}
+                      className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary"
+                    >
+                      <option value="Free">Free</option>
+                      <option value="Freemium">Freemium</option>
+                      <option value="Paid">Paid</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Likes Count</label>
+                    <input
+                      type="number"
+                      value={formData.likesCount}
+                      onChange={(e) => setFormData({ ...formData, likesCount: e.target.value })}
+                      className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2">Tags (Type # to search)</label>
+                  <MultiTagInput
+                    value={formData.tags}
+                    onChange={(val) => setFormData({ ...formData, tags: val })}
+                    fetchSuggestions={async (q) => {
+                      const tags = await tagService.getAll(q);
+                      return tags.map(t => ({ label: t.name, value: t.name }));
+                    }}
+                    onCreateNew={async (newTagName) => {
+                      return await tagService.create(newTagName);
+                    }}
+                    placeholder="Add tags..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="isTrending"
+                      checked={formData.isTrending}
+                      onChange={(e) => setFormData({ ...formData, isTrending: e.target.checked })}
+                      className="w-4 h-4"
+                    />
+                    <label htmlFor="isTrending" className="text-sm font-medium">Is Trending</label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="isPartnerTool"
+                      checked={formData.isPartnerTool}
+                      onChange={(e) => setFormData({ ...formData, isPartnerTool: e.target.checked })}
+                      className="w-4 h-4"
+                    />
+                    <label htmlFor="isPartnerTool" className="text-sm font-medium flex items-center gap-1"><Heart className="w-4 h-4 text-blue-400" /> Partner Tool</label>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="enabled"
+                      checked={formData.enabled}
+                      onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
+                      className="w-4 h-4"
+                    />
+                    <label htmlFor="enabled" className="text-sm font-medium">Enabled</label>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 pt-4">
+                  <button
+                    type="submit"
+                    className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors"
                   >
-                    <option value="">Select Category</option>
-                    {categories.map(cat => (
-                      <option key={cat.id} value={cat.id}>{cat.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Short Description *</label>
-                <input
-                  type="text"
-                  value={formData.shortDescription}
-                  onChange={(e) => setFormData({ ...formData, shortDescription: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Long Description</label>
-                <textarea
-                  value={formData.longDescription}
-                  onChange={(e) => setFormData({ ...formData, longDescription: e.target.value })}
-                  className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary"
-                  rows="4"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">URL *</label>
-                  <input
-                    type="url"
-                    value={formData.url}
-                    onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                    className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Logo URL</label>
-                  <input
-                    type="url"
-                    value={formData.logoUrl}
-                    onChange={(e) => setFormData({ ...formData, logoUrl: e.target.value })}
-                    className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-2">Pricing</label>
-                  <select
-                    value={formData.pricing}
-                    onChange={(e) => setFormData({ ...formData, pricing: e.target.value })}
-                    className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary"
+                    <Save className="w-5 h-5" />
+                    {editingTool ? 'Update' : 'Create'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={resetForm}
+                    className="px-6 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors"
                   >
-                    <option value="Free">Free</option>
-                    <option value="Freemium">Freemium</option>
-                    <option value="Paid">Paid</option>
-                  </select>
+                    Cancel
+                  </button>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Likes Count</label>
-                  <input
-                    type="number"
-                    value={formData.likesCount}
-                    onChange={(e) => setFormData({ ...formData, likesCount: e.target.value })}
-                    className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">Tags (Type # to search)</label>
-                <MultiTagInput
-                  value={formData.tags}
-                  onChange={(val) => setFormData({ ...formData, tags: val })}
-                  fetchSuggestions={async (q) => {
-                    const tags = await tagService.getAll(q);
-                    return tags.map(t => ({ label: t.name, value: t.name }));
-                  }}
-                  onCreateNew={async (newTagName) => {
-                    return await tagService.create(newTagName);
-                  }}
-                  placeholder="Add tags..."
-                />
-              </div>
-
-              <div className="grid grid-cols-3 gap-4">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="isTrending"
-                    checked={formData.isTrending}
-                    onChange={(e) => setFormData({ ...formData, isTrending: e.target.checked })}
-                    className="w-4 h-4"
-                  />
-                  <label htmlFor="isTrending" className="text-sm font-medium">Is Trending</label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="isPartnerTool"
-                    checked={formData.isPartnerTool}
-                    onChange={(e) => setFormData({ ...formData, isPartnerTool: e.target.checked })}
-                    className="w-4 h-4"
-                  />
-                  <label htmlFor="isPartnerTool" className="text-sm font-medium flex items-center gap-1"><Heart className="w-4 h-4 text-blue-400" /> Partner Tool</label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="enabled"
-                    checked={formData.enabled}
-                    onChange={(e) => setFormData({ ...formData, enabled: e.target.checked })}
-                    className="w-4 h-4"
-                  />
-                  <label htmlFor="enabled" className="text-sm font-medium">Enabled</label>
-                </div>
-              </div>
-
-              <div className="flex gap-4 pt-4">
-                <button
-                  type="submit"
-                  className="flex items-center gap-2 px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors"
-                >
-                  <Save className="w-5 h-5" />
-                  {editingTool ? 'Update' : 'Create'}
-                </button>
-                <button
-                  type="button"
-                  onClick={resetForm}
-                  className="px-6 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 };
 

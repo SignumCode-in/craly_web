@@ -157,44 +157,50 @@ const DashboardHome = () => {
           <h3 className="text-xl font-bold text-white">Daily New Users (Last 7 Days)</h3>
         </div>
 
-        <div className="h-[300px] w-full">
-          <ResponsiveContainer width="100%" height="100%" minHeight={300}>
-            <BarChart data={analytics.dailyRegistrations} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-              <XAxis
-                dataKey="date"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: '#B8B8B8', fontSize: 12 }}
-                dy={10}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fill: '#B8B8B8', fontSize: 12 }}
-                allowDecimals={false}
-              />
-              <Tooltip
-                cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                contentStyle={{
-                  backgroundColor: '#1A1A1A',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: '12px',
-                  color: '#fff'
-                }}
-                itemStyle={{ color: '#4A90E2' }}
-              />
-              <Bar
-                dataKey="count"
-                radius={[6, 6, 0, 0]}
-                barSize={40}
-              >
-                {analytics.dailyRegistrations.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.count > 0 ? '#4A90E2' : 'rgba(74, 144, 226, 0.2)'} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+        <div className="w-full" style={{ height: 300 }}>
+          {analytics.dailyRegistrations && analytics.dailyRegistrations.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={analytics.dailyRegistrations} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                <XAxis
+                  dataKey="date"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#B8B8B8', fontSize: 12 }}
+                  dy={10}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fill: '#B8B8B8', fontSize: 12 }}
+                  allowDecimals={false}
+                />
+                <Tooltip
+                  cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                  contentStyle={{
+                    backgroundColor: '#1A1A1A',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '12px',
+                    color: '#fff'
+                  }}
+                  itemStyle={{ color: '#4A90E2' }}
+                />
+                <Bar
+                  dataKey="count"
+                  radius={[6, 6, 0, 0]}
+                  barSize={40}
+                >
+                  {analytics.dailyRegistrations.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.count > 0 ? '#4A90E2' : 'rgba(74, 144, 226, 0.2)'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-full text-soft-grey border border-dashed border-white/10 rounded-lg">
+              No registration data available
+            </div>
+          )}
         </div>
       </div>
 
