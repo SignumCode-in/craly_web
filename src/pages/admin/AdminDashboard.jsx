@@ -15,6 +15,7 @@ import UsersManager from '../../components/admin/UsersManager';
 import PartnersManager from '../../components/admin/PartnersManager';
 import PromotionsManager from '../../components/admin/PromotionsManager';
 import TagsManager from '../../components/admin/TagsManager';
+import NotificationManager from '../../components/admin/NotificationManager';
 
 import GlobalSearch from '../../components/admin/GlobalSearch';
 
@@ -59,6 +60,8 @@ const AdminDashboard = () => {
         return <UsersManager />;
       case 'tags':
         return <TagsManager />;
+      case 'notifications':
+        return <NotificationManager />;
       default:
         return <DashboardHome />;
     }
