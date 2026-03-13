@@ -1,6 +1,7 @@
+import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, FolderTree, Tag, Workflow, FileText, LogOut, Shield, Globe, Upload, Image, Users, Gift, Hash, BellRing } from 'lucide-react';
 
-const Sidebar = ({ activeTab, setActiveTab, onLogout }) => {
+const Sidebar = ({ onLogout }) => {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'tools', label: 'Tools Manager', icon: FolderTree },
@@ -30,17 +31,20 @@ const Sidebar = ({ activeTab, setActiveTab, onLogout }) => {
         {menuItems.map((item) => {
           const Icon = item.icon;
           return (
-            <button
+            <NavLink
               key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${activeTab === item.id
-                ? 'bg-primary/20 text-primary border border-primary/30'
-                : 'text-soft-grey hover:bg-white/5 hover:text-white'
-                }`}
+              to={`/admin/${item.id}`}
+              className={({ isActive }) =>
+                `w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${
+                  isActive
+                    ? 'bg-primary/20 text-primary border border-primary/30'
+                    : 'text-soft-grey hover:bg-white/5 hover:text-white'
+                }`
+              }
             >
               <Icon className="w-5 h-5" />
               <span className="font-medium">{item.label}</span>
-            </button>
+            </NavLink>
           );
         })}
       </nav>

@@ -1,8 +1,10 @@
 import { useEffect, useState, useMemo } from 'react';
-import { userService } from '../../api/userService';
-import { Trash2, User, Mail, Calendar, Search, Filter, ArrowUpDown } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { userService } from '../../../api/userService';
+import { Trash2, User, Mail, Calendar, Search, Filter, ArrowUpDown, Plus, Edit } from 'lucide-react';
 
-const UsersManager = () => {
+const UsersIndex = () => {
+    const navigate = useNavigate();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -29,7 +31,7 @@ const UsersManager = () => {
         if (window.confirm('Are you sure you want to delete this user?')) {
             try {
                 await userService.delete(id);
-                setUsers(users.filter(user => user.id !== id));
+                setUsers(users.filter(user => user.id !== id && user._id !== id));
             } catch (error) {
                 console.error('Error deleting user:', error);
             }
@@ -86,12 +88,19 @@ const UsersManager = () => {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h2 className="text-2xl font-bold text-white">User Management</h2>
-                    <p className="text-soft-grey text-sm">Manage and track user registration</p>
+                    <p className="text-soft-grey text-sm">Manage and track users</p>
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="bg-primary/20 text-primary px-3 py-1 rounded-full text-sm font-medium">
                         {filteredAndSortedUsers.length} Users
                     </div>
+                    <Link
+                        to="/admin/users/add"
+                        className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors"
+                    >
+                        <Plus className="w-5 h-5" />
+                        Add User
+                    </Link>
                 </div>
             </div>
 
@@ -141,7 +150,7 @@ const UsersManager = () => {
             <div className="grid grid-cols-1 gap-4">
                 {filteredAndSortedUsers.length > 0 ? (
                     filteredAndSortedUsers.map((user) => (
-                        <div key={user.id} className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between hover:bg-white/10 transition-colors">
+                        <div key={user.id || user._id} className="bg-white/5 border border-white/10 rounded-xl p-4 flex items-center justify-between hover:bg-white/10 transition-colors">
                             <div className="flex items-center gap-4">
                                 <div className="w-12 h-12 rounded-full overflow-hidden bg-white/10 flex items-center justify-center border border-white/10 shadow-inner">
                                     {user.photoUrl ? (
@@ -188,13 +197,22 @@ const UsersManager = () => {
                                 </div>
                             </div>
 
-                            <button
-                                onClick={() => handleDeleteUser(user.id)}
-                                className="p-2 hover:bg-red-500/20 text-soft-grey hover:text-red-500 rounded-lg transition-all"
-                                title="Delete User"
-                            >
-                                <Trash2 size={20} />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => navigate(`/admin/users/edit/${user.id || user._id}`)}
+                                    className="p-2 hover:bg-white/10 text-soft-grey hover:text-white rounded-lg transition-all"
+                                    title="Edit User"
+                                >
+                                    <Edit size={20} />
+                                </button>
+                                <button
+                                    onClick={() => handleDeleteUser(user.id || user._id)}
+                                    className="p-2 hover:bg-red-500/20 text-soft-grey hover:text-red-500 rounded-lg transition-all"
+                                    title="Delete User"
+                                >
+                                    <Trash2 size={20} />
+                                </button>
+                            </div>
                         </div>
                     ))
                 ) : (
@@ -209,4 +227,4 @@ const UsersManager = () => {
     );
 };
 
-export default UsersManager;
+export default UsersIndex;

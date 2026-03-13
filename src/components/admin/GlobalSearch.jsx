@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, Loader, X, FolderTree, Tag, FileText, Workflow } from 'lucide-react';
 import { searchService } from '../../api/searchService';
 
 const GlobalSearch = ({ onNavigate }) => {
+  const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -51,6 +53,11 @@ const GlobalSearch = ({ onNavigate }) => {
       else if (type === 'category') onNavigate('categories');
       else if (type === 'post') onNavigate('posts');
       else if (type === 'workflow') onNavigate('workflows');
+    } else {
+      if (type === 'tool') navigate('/admin/tools');
+      else if (type === 'category') navigate('/admin/categories');
+      else if (type === 'post') navigate('/admin/posts');
+      else if (type === 'workflow') navigate('/admin/workflows');
     }
   };
 
