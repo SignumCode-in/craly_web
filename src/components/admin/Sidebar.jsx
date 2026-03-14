@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FolderTree, Tag, Workflow, FileText, LogOut, Shield, Globe, Upload, Image, Users, Gift, Hash, BellRing } from 'lucide-react';
+import { LayoutDashboard, FolderTree, Tag, Workflow, FileText, LogOut, Shield, Globe, Upload, Image, Users, Gift, Hash, BellRing, Settings } from 'lucide-react';
 
 const Sidebar = ({ onLogout }) => {
   const menuItems = [
@@ -16,7 +16,8 @@ const Sidebar = ({ onLogout }) => {
     { id: 'landing', label: 'Landing Page', icon: Globe },
     { id: 'json-upload', label: 'JSON Upload', icon: Upload },
     { id: 'users', label: 'Users', icon: FileText },
-    { id: 'notifications', label: 'Notifications', icon: BellRing }
+    { id: 'notifications', label: 'Notifications', icon: BellRing },
+    { id: 'settings', label: 'Settings', icon: Settings }
   ];
 
   return (

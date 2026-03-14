@@ -36,6 +36,11 @@ import LandingPageManager from './components/admin/LandingPageManager';
 import JsonUploadManager from './components/admin/JsonUploadManager';
 import TagsManager from './components/admin/TagsManager';
 import NotificationManager from './components/admin/NotificationManager';
+import SettingsLayout from './pages/admin/settings/SettingsLayout';
+import AvatarSettings from './pages/admin/settings/AvatarSettings';
+import ModelSettings from './pages/admin/settings/ModelSettings';
+import AppUpdateSettings from './pages/admin/settings/AppUpdateSettings';
+
 
 function App() {
   return (
@@ -93,6 +98,14 @@ function App() {
           <Route path="json-upload/*" element={<JsonUploadManager />} />
           <Route path="tags/*" element={<TagsManager />} />
           <Route path="notifications/*" element={<NotificationManager />} />
+
+          <Route path="settings" element={<SettingsLayout />}>
+            <Route index element={<Navigate to="avatar" replace />} />
+            <Route path="avatar" element={<AvatarSettings />} />
+            <Route path="model" element={<ModelSettings />} />
+            <Route path="app-update" element={<AppUpdateSettings />} />
+          </Route>
+
         </Route>
       </Routes>
     </Router>
