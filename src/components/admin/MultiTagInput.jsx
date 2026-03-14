@@ -36,7 +36,7 @@ const MultiTagInput = ({
         };
         const timer = setTimeout(() => { getSuggestions(); }, 300);
         return () => clearTimeout(timer);
-    }, [inputValue, fetchSuggestions]);
+    }, [inputValue]); // Removed fetchSuggestions to prevent infinite loop if passed inline
 
     const handleAdd = async (tagStr) => {
         const cleanTag = tagStr.replace(/^#/, '').trim();

@@ -13,6 +13,7 @@ const ToolsIndex = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [trendingFilter, setTrendingFilter] = useState('');
   const [showTrendingOrder, setShowTrendingOrder] = useState(false);
   const [viewMode, setViewMode] = useState('grid');
   const [trendingTools, setTrendingTools] = useState([]);
@@ -23,14 +24,14 @@ const ToolsIndex = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedCategory]);
+  }, [searchTerm, selectedCategory, trendingFilter]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchTools();
     }, 500);
     return () => clearTimeout(timer);
-  }, [searchTerm, selectedCategory, currentPage]);
+  }, [searchTerm, selectedCategory, trendingFilter, currentPage]);
 
   useEffect(() => {
     fetchCategories();
@@ -39,12 +40,20 @@ const ToolsIndex = () => {
   const fetchTools = async () => {
     try {
       setLoading(true);
-      const data = await toolService.getAll({
+      const params = {
         page: currentPage,
         limit,
         search: searchTerm,
         category: selectedCategory
-      });
+      };
+      
+      if (trendingFilter === 'true') {
+        params.trending = true;
+      } else if (trendingFilter === 'false') {
+        params.trending = false;
+      }
+
+      const data = await toolService.getAll(params);
 
       const items = data.tools || data;
       setTools(items);
@@ -54,15 +63,21 @@ const ToolsIndex = () => {
         setTotalPages(data.pagination.totalPages || 1);
         setCurrentPage(data.pagination.currentPage || 1);
       }
-
-      const trending = items
-        .filter(t => t.isTrending)
-        .sort((a, b) => (a.trendingOrder || 0) - (b.trendingOrder || 0));
-      setTrendingTools(trending);
     } catch (error) {
       console.error('Error fetching tools:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchTrendingTools = async () => {
+    try {
+      const data = await toolService.getAll({ limit: 1000, trending: true });
+      const items = data.tools || data;
+      const trending = items.sort((a, b) => (a.trendingOrder || 0) - (b.trendingOrder || 0));
+      setTrendingTools(trending);
+    } catch (error) {
+      console.error('Error fetching trending tools:', error);
     }
   };
 
@@ -134,7 +149,7 @@ const ToolsIndex = () => {
         })
       );
       await Promise.all(promises);
-      fetchTools();
+      await fetchTools();
       setShowTrendingOrder(false);
       alert('Trending order updated successfully!');
     } catch (error) {
@@ -155,7 +170,10 @@ const ToolsIndex = () => {
         <h1 className="text-3xl font-bold">Tools Manager</h1>
         <div className="flex gap-3">
           <button
-            onClick={() => setShowTrendingOrder(true)}
+            onClick={() => {
+              setShowTrendingOrder(true);
+              fetchTrendingTools();
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-accent hover:bg-accent/90 text-white rounded-lg transition-colors"
           >
             <TrendingUp className="w-5 h-5" />
@@ -178,6 +196,11 @@ const ToolsIndex = () => {
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+              }
+            }}
             placeholder="Search tools by name, category, or description..."
             className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary text-white placeholder-soft-grey"
           />
@@ -192,6 +215,17 @@ const ToolsIndex = () => {
             {categories.map(cat => (
               <option key={cat.id} value={cat.id}>{cat.name}</option>
             ))}
+          </select>
+        </div>
+        <div className="w-full md:w-48">
+          <select
+            value={trendingFilter}
+            onChange={(e) => setTrendingFilter(e.target.value)}
+            className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:border-primary text-white"
+          >
+            <option value="">All Tools</option>
+            <option value="true">Trending Only</option>
+            <option value="false">Non-Trending Only</option>
           </select>
         </div>
         <div className="flex bg-white/5 border border-white/10 rounded-lg p-1">
@@ -370,9 +404,32 @@ const ToolsIndex = () => {
       )}
 
       {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-8 p-4 bg-white/5 border border-white/10 rounded-xl">
-          <div className="text-sm text-soft-grey">
-            Showing Page <span className="text-white font-medium">{currentPage}</span> of <span className="text-white font-medium">{totalPages}</span>
+        <div className="flex items-center justify-between mt-8 p-4 bg-white/5 border border-white/10 rounded-xl gap-4 flex-wrap">
+          <div className="text-sm text-soft-grey flex items-center flex-wrap gap-4">
+            <span>Showing Page <span className="text-white font-medium">{currentPage}</span> of <span className="text-white font-medium">{totalPages}</span></span>
+            <div className="flex items-center gap-2 md:border-l md:border-white/10 md:pl-4">
+              <span>Go to:</span>
+              <input
+                key={`page-input-${currentPage}`}
+                type="number"
+                min="1"
+                max={totalPages}
+                defaultValue={currentPage}
+                onBlur={(e) => {
+                  let page = parseInt(e.target.value);
+                  if (isNaN(page) || page < 1) page = 1;
+                  if (page > totalPages) page = totalPages;
+                  e.target.value = page;
+                  if (page !== currentPage) setCurrentPage(page);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.currentTarget.blur();
+                  }
+                }}
+                className="w-16 px-2 py-1 bg-white/5 border border-white/10 rounded text-white text-center focus:outline-none focus:border-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+            </div>
           </div>
           <div className="flex gap-2">
             <button onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))} disabled={currentPage === 1} className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
@@ -391,10 +448,7 @@ const ToolsIndex = () => {
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold">Trending Order</h2>
               <button
-                onClick={() => {
-                  setShowTrendingOrder(false);
-                  setTrendingTools(tools.filter(t => t.isTrending).sort((a, b) => (a.trendingOrder || 0) - (b.trendingOrder || 0)));
-                }}
+                onClick={() => setShowTrendingOrder(false)}
                 className="text-soft-grey hover:text-white"
               >
                 <X className="w-6 h-6" />

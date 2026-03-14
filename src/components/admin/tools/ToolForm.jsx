@@ -7,19 +7,30 @@ import { Save, Heart } from 'lucide-react';
 
 const ToolForm = ({ initialData, onSubmit, onCancel, submitText }) => {
   const [categories, setCategories] = useState([]);
-  const [formData, setFormData] = useState(initialData || {
-    name: '',
-    category: '',
-    shortDescription: '',
-    longDescription: '',
-    url: '',
-    logoUrl: '',
-    pricing: 'Freemium',
-    tags: [],
-    isTrending: false,
-    isPartnerTool: false,
-    enabled: true,
-    likesCount: 0
+  const [formData, setFormData] = useState(() => {
+    const defaultData = {
+      name: '',
+      category: '',
+      shortDescription: '',
+      longDescription: '',
+      url: '',
+      logoUrl: '',
+      pricing: 'Freemium',
+      tags: [],
+      isTrending: false,
+      isPartnerTool: false,
+      enabled: true,
+      likesCount: 0
+    };
+
+    if (!initialData) return defaultData;
+
+    let catVal = initialData.category;
+    if (catVal && typeof catVal === 'object') {
+      catVal = catVal._id || catVal.id || '';
+    }
+
+    return { ...initialData, category: catVal };
   });
 
   useEffect(() => {
@@ -39,10 +50,52 @@ const ToolForm = ({ initialData, onSubmit, onCancel, submitText }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit({
+
+    const currentData = {
       ...formData,
       likesCount: parseInt(formData.likesCount) || 0
+    };
+
+    if (!initialData) {
+      onSubmit(currentData);
+      return;
+    }
+
+    let catVal = initialData.category;
+    if (catVal && typeof catVal === 'object') {
+      catVal = catVal._id || catVal.id || '';
+    }
+
+    const normalizedInitialData = { ...initialData, category: catVal };
+    const changedData = {};
+
+    Object.keys(currentData).forEach(key => {
+      const currentVal = currentData[key];
+      let initialVal = normalizedInitialData[key];
+
+      if (key === 'likesCount' && initialVal !== undefined) {
+        initialVal = parseInt(initialVal) || 0;
+      }
+
+      const isArray = Array.isArray(currentVal);
+      const wasArray = Array.isArray(initialVal);
+
+      if (isArray && wasArray) {
+        if (JSON.stringify(currentVal) !== JSON.stringify(initialVal)) {
+          changedData[key] = currentVal;
+        }
+      } else if (currentVal !== initialVal) {
+        changedData[key] = currentVal;
+      }
     });
+
+    if (Object.keys(changedData).length === 0) {
+      // No changes made
+      if (onCancel) onCancel();
+      return;
+    }
+
+    onSubmit(changedData);
   };
 
   return (
