@@ -5,6 +5,10 @@ export const bannerService = {
     const data = await client.get('/banners');
     return data.map(item => ({ ...item, id: item._id }));
   },
+  getById: async (id) => {
+    const item = await client.get(`/banners/${id}`);
+    return { ...item, id: item._id };
+  },
   create: (data) => client.post('/banners', data),
   update: (id, data) => client.put(`/banners/${id}`, data),
   delete: (id) => client.delete(`/banners/${id}`),

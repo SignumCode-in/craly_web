@@ -16,8 +16,7 @@ const EditBanner = () => {
 
   const fetchBanner = async () => {
     try {
-      const allBanners = await bannerService.getAll();
-      const foundBanner = allBanners.find(b => b.id === id || b.documentId === id);
+      const foundBanner = await bannerService.getById(id);
       
       if (foundBanner) {
         setBanner({

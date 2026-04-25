@@ -9,6 +9,7 @@ const BannersIndex = () => {
   const [filteredBanners, setFilteredBanners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [bannerToDelete, setBannerToDelete] = useState(null);
 
   useEffect(() => {
     fetchBanners();
@@ -50,10 +51,15 @@ const BannersIndex = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this banner?')) {
+  const handleDelete = (id) => {
+    setBannerToDelete(id);
+  };
+
+  const confirmDelete = async () => {
+    if (bannerToDelete) {
       try {
-        await bannerService.delete(id);
+        await bannerService.delete(bannerToDelete);
+        setBannerToDelete(null);
         fetchBanners();
       } catch (error) {
         console.error('Error deleting banner:', error);
@@ -128,8 +134,8 @@ const BannersIndex = () => {
                     <button
                       onClick={() => handleToggleEnabled(banner)}
                       className={`flex items-center gap-2 px-3 py-1 rounded text-xs font-medium transition-colors ${banner.enabled !== false
-                          ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                          : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                        ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                        : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
                         }`}
                     >
                       <Power className={`w-3 h-3 ${banner.enabled !== false ? '' : 'opacity-50'}`} />
@@ -163,6 +169,33 @@ const BannersIndex = () => {
           </table>
         </div>
       </div>
+
+      {/* Custom Delete Confirmation Modal */}
+      {bannerToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-dark border border-white/10 rounded-xl max-w-md w-full p-6 shadow-2xl animate-fade-in-up">
+            <h3 className="text-xl font-semibold mb-2">Delete Banner</h3>
+            <p className="text-soft-grey mb-6">
+              Are you sure you want to delete this banner? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setBannerToDelete(null)}
+                className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
